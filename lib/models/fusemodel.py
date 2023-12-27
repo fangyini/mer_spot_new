@@ -90,7 +90,7 @@ class FeatNet(nn.Module):
                 self.convs.append(conv)
         # self.relu = nn.ReLU(inplace=True)
         if replaceTran:
-            self.tran = ConvTransformerBackbone(n_out=cfg.MODEL.LAYER_DIMS, mha_win_size=[8]*4)
+            self.tran = ConvTransformerBackbone(n_out=cfg.MODEL.LAYER_DIMS) #, mha_win_size=[8]*4)
         self.mish = Mish()
 
     @torch.no_grad()
@@ -386,7 +386,7 @@ class LocNet(nn.Module):
 class FuseModel(nn.Module):
     def __init__(self, cfg):
         super(FuseModel, self).__init__()
-        self.features = FeatNet(cfg, addAtt=False, replaceTran=True, pool=False)
+        self.features = FeatNet(cfg, addAtt=False, replaceTran=True, pool=True)
         self.loc_net = LocNet(cfg)
 
     def forward(self, x):

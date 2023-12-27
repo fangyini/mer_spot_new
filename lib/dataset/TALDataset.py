@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
+import json
 
 
 class TALDataset(Dataset):
@@ -18,8 +19,11 @@ class TALDataset(Dataset):
 
         self.class_label = cfg.DATASET.CLASS_IDX
         self.window_size = cfg.DATASET.WINDOW_SIZE
-        #if self.split == self.train_split:
-        #    self.anno_df = pd.read_csv('/home/yww/1_spot/casme2_annotation.csv')
+        self.is_micro_system = cfg.DATASET.MICRO_SYSTEM
+        self.label_type = cfg.DATASET.LABEL_TYPE
+        if self.split == self.train_split and self.is_micro_system:
+            with open(cfg.DATASET.INFO_DIR, 'r') as fid:
+                self.info_dict = json.load(fid)
 
         self.gt_overlap_threshold = 0.9
 
@@ -61,14 +65,25 @@ class TALDataset(Dataset):
         begin_frame = data['begin_frame']
         # pass video_name vis list
         video_name = str(data['vid_name'])
-        
+
         if self.split == self.train_split:
             action = data['action']
             # action_tmp = [i[:2] for i in action]
             action = np.array(action).astype('float32')
+
             label = data['class_label']
             # data for anchor-based
             # label, action = self.get_anno(begin_frame, video_name)
+
+            # todo: convert to micro expression type, macro expression to 0
+            if self.is_micro_system == True and label[0] != 0:
+                if label[0] == 2:
+                    start = str(int(begin_frame + action[0][0]))
+                    new_label = self.info_dict[video_name][start][self.label_type] + 1
+                elif label[0] == 1:
+                    new_label = 0
+                label = np.array(new_label).reshape(1)
+
             num_segment = action.shape[0]
             assert num_segment > 0, 'no action in {}!!!'.format(video_name)
             action_padding = np.zeros((self.max_segment_num, 2), dtype=float)
@@ -84,4 +99,3 @@ class TALDataset(Dataset):
         datas = os.listdir(self.base_dir)
         datas = [i for i in datas if i.endswith('.npz')]
         return datas
-
