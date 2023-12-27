@@ -18,8 +18,8 @@ from core.post_process import final_result_process
 from core.utils_ab import weight_init
 from utils.utils import save_model, backup_codes
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "3"
-
+#os.environ["CUDA_VISIBLE_DEVICES"] = "3"
+DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 def main(subject, config):
     update_config(config)
@@ -44,7 +44,7 @@ def main(subject, config):
     # model
     model = FuseModel(cfg)
     model.apply(weight_init)
-    model.cuda()
+    model.to(DEVICE)
     
     # optimizer
     # warm_up_with_cosine_lr
@@ -79,7 +79,7 @@ def main(subject, config):
         lr = scheduler.get_last_lr()
 
         if (epoch+1) % cfg.TEST.EVAL_INTERVAL == 0:
-            save_model(cfg, epoch=epoch, model=model, optimizer=optimizer, subject=subject)
+            #save_model(cfg, epoch=epoch, model=model, optimizer=optimizer, subject=subject)
             out_df_ab, out_df_af = evaluation(val_loader, model, epoch, cfg)
             out_df_list = [out_df_ab, out_df_af]
             final_result_process(out_df_list, epoch, subject, cfg, flag=0)
@@ -90,8 +90,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='MER SPOT')
     # parser.add_argument('--cfg', type=str, help='experiment config file', default='/home/yww/mer_spot/experiments/CAS.yaml')
     # parser.add_argument('--dataset', type=str, default='cas(me)^2')
-    parser.add_argument('--cfg', type=str, help='experiment config file', default='/home/yww/mer_spot/experiments/SAMM_5.yaml')
-    parser.add_argument('--dataset', type=str, default='samm')
+    parser.add_argument('--cfg', type=str, help='experiment config file', default='experiments/CAS.yaml')
+    parser.add_argument('--dataset', type=str, default='cas(me)^2')
     args = parser.parse_args()
 
     dataset = args.dataset

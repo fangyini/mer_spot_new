@@ -18,8 +18,8 @@ class TALDataset(Dataset):
 
         self.class_label = cfg.DATASET.CLASS_IDX
         self.window_size = cfg.DATASET.WINDOW_SIZE
-        if self.split == self.train_split:
-            self.anno_df = pd.read_csv('/home/yww/1_spot/casme2_annotation.csv')
+        #if self.split == self.train_split:
+        #    self.anno_df = pd.read_csv('/home/yww/1_spot/casme2_annotation.csv')
 
         self.gt_overlap_threshold = 0.9
 
@@ -71,9 +71,9 @@ class TALDataset(Dataset):
             # label, action = self.get_anno(begin_frame, video_name)
             num_segment = action.shape[0]
             assert num_segment > 0, 'no action in {}!!!'.format(video_name)
-            action_padding = np.zeros((self.max_segment_num, 2), dtype=np.float)
+            action_padding = np.zeros((self.max_segment_num, 2), dtype=float)
             action_padding[:num_segment, :] = action
-            label_padding = np.zeros(self.max_segment_num, dtype=np.int)
+            label_padding = np.zeros(self.max_segment_num, dtype=int)
             label_padding[:num_segment] = label
 
             return feat_spa, feat_tem, action_padding, label_padding, num_segment

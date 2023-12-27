@@ -1,8 +1,10 @@
 import torch.nn as nn
 import torch
 import torch.nn.functional as F
+from .backbones import ConvTransformerBackbone
+from .blocks import LocalMaskedMHCA, MaskedMHCA
 
-
+DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 class Mish(nn.Module):
     def __init__(self):
         super().__init__()
@@ -23,8 +25,9 @@ class BaseFeatureNet(nn.Module):
     input: [batch_size, 2048, 256]
     output: [batch_size, 512, 64]
     '''
-    def __init__(self, cfg):
+    def __init__(self, cfg, pool=True):
         super(BaseFeatureNet, self).__init__()
+        self.pool = pool
         self.dataset = cfg.DATASET.DATASET_NAME
         self.conv1 = nn.Conv1d(in_channels=cfg.MODEL.IN_FEAT_DIM,
                                out_channels=cfg.MODEL.BASE_FEAT_DIM,
@@ -39,10 +42,12 @@ class BaseFeatureNet(nn.Module):
     def forward(self, x):
         feat = self.mish(self.conv1(x))
         # feat = self.relu(self.conv1(x))
-        feat = self.max_pooling(feat)
+        if self.pool:
+            feat = self.max_pooling(feat)
         feat = self.mish(self.conv2(feat))
         # feat = self.relu(self.conv2(feat))
-        feat = self.max_pooling(feat)
+        if self.pool:
+            feat = self.max_pooling(feat)
         return feat
 
 
@@ -67,28 +72,52 @@ class FeatNet(nn.Module):
     MAL4: [batch_size, 1024, 4]
     MAL5: [batch_size, 1024, 2]
     '''
-    def __init__(self, cfg):
+    def __init__(self, cfg, addAtt, replaceTran, pool):
         super(FeatNet, self).__init__()
-        self.base_feature_net = BaseFeatureNet(cfg)
+        self.replaceTran = replaceTran
+        self.base_feature_net = BaseFeatureNet(cfg, pool)
         self.convs = nn.ModuleList()
         for layer in range(cfg.MODEL.NUM_LAYERS):
             # stride = 1 if layer == 0 else 2
             in_channel = cfg.MODEL.BASE_FEAT_DIM if layer == 0 else cfg.MODEL.LAYER_DIMS[layer - 1]
             out_channel = cfg.MODEL.LAYER_DIMS[layer]
-            conv = nn.Conv1d(in_channel, out_channel, kernel_size=3, stride=cfg.MODEL.LAYER_STRIDES[layer], padding=1)
-            self.convs.append(conv)
+            if addAtt:
+                #attnet = LocalMaskedMHCA(in_channel, window_size=8)
+                attnet = MaskedMHCA(in_channel)
+                self.convs.append(attnet)
+            if not replaceTran:
+                conv = nn.Conv1d(in_channel, out_channel, kernel_size=3, stride=cfg.MODEL.LAYER_STRIDES[layer], padding=1)
+                self.convs.append(conv)
         # self.relu = nn.ReLU(inplace=True)
+        if replaceTran:
+            self.tran = ConvTransformerBackbone(n_out=cfg.MODEL.LAYER_DIMS, mha_win_size=[8]*4)
         self.mish = Mish()
+
+    @torch.no_grad()
+    def generate_mask(self, x):
+        # x: batch size, feature channel, sequence length,
+        # mask: batch size, 1, sequence length (bool)
+        mask = torch.ones((x.size()[0], 1, x.size()[2])).bool().to(DEVICE)
+        return x, mask
 
     def forward(self, x):
         results = []
         feat = self.base_feature_net(x)
-        for conv in self.convs:
-            feat = self.mish(conv(feat))
-            # feat = self.relu(conv(feat))
-            results.append(feat)
+        if self.replaceTran:
+            feat, mask = self.generate_mask(feat)
+            feat, _ = self.tran(feat, mask)
+            return feat
+        else:
+            for conv in self.convs:
+                if isinstance(conv, nn.Conv1d):
+                    feat = self.mish(conv(feat))
+                    # feat = self.relu(conv(feat))
+                    results.append(feat)
+                elif isinstance(conv, MaskedMHCA):
+                    feat, mask = self.generate_mask(feat)
+                    feat, _ = conv(feat, mask)
 
-        return tuple(results)
+            return tuple(results)
 
 
 # Postbackbone -> Neck
@@ -134,12 +163,12 @@ class GlobalLocalBlock(nn.Module):
         phi = self.phi(x)
         g = self.g(x)
 
-        all_tmp = torch.zeros([channels, batch_size, length_temp, ori_length]).cuda()
+        all_tmp = torch.zeros([channels, batch_size, length_temp, ori_length]).to(DEVICE)
         all_temp_g = all_tmp
         for j in range(theta.size(1)):
             # Sometimes, temp1: BS* T * Channels
             # temp2: BS* (T+1) * Channels
-            temp = torch.zeros([batch_size, length_temp, ori_length]).cuda() # BS*T*mean_channel
+            temp = torch.zeros([batch_size, length_temp, ori_length]).to(DEVICE) # BS*T*mean_channel
             temp_g = temp
             if j < length_temp//2:
                 temp[:,length_temp//2-j:,:] = theta[:,:j+length_temp//2,:]
@@ -161,7 +190,7 @@ class GlobalLocalBlock(nn.Module):
         local_p = F.softmax(local_theta_phi_sc, dim=-1)  
         local_p = local_p.expand(-1, -1, ori_length, -1)
         all_temp_g = all_temp_g.permute(1,0,3,2)
-        all_temp_g = torch.where(all_temp_g < torch.tensor(self.drop_threshold).float().cuda(), torch.tensor(0).float().cuda(), all_temp_g)
+        all_temp_g = torch.where(all_temp_g < torch.tensor(self.drop_threshold).float().to(DEVICE), torch.tensor(0).float().to(DEVICE), all_temp_g)
         local_temp = torch.sum(self.drop(local_p) * all_temp_g, dim=-1) 
         out_temp = local_temp
     
@@ -357,7 +386,7 @@ class LocNet(nn.Module):
 class FuseModel(nn.Module):
     def __init__(self, cfg):
         super(FuseModel, self).__init__()
-        self.features = FeatNet(cfg)
+        self.features = FeatNet(cfg, addAtt=False, replaceTran=True, pool=False)
         self.loc_net = LocNet(cfg)
 
     def forward(self, x):
