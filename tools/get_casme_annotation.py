@@ -65,6 +65,9 @@ def get_casme_annotation(rawpic_path, file_path, save_file):
         if row[0] not in type2_dict:
             type2_dict[row[0]] = row[1]
 
+    type1_counter = {'negative': 0, 'positive': 0, 'others': 0, 'surprise': 0}
+
+
     # iterate df0
     for ind in df0.index:
         # video_name: no subset, duration(frames), annotation: [{label, segment(frames), label_id}]
@@ -84,6 +87,9 @@ def get_casme_annotation(rawpic_path, file_path, save_file):
         if full_name not in database:
             database[full_name] = {} # {'subset': subset, 'duration(frames)': rawpic_dict[video_name]['len'],  'annotations': []}
         start = int(row['Onset'])
+
+        type1_counter[row['Type1']] += 1
+
         type1 = type1_dict[row['Type1']]
         type2 = type2_dict[row['Type2']]
         database[full_name][start] = {'Type1': type1, 'Type2': type2}

@@ -64,6 +64,11 @@ def main(subject, config):
     log_path = os.path.join(cfg.BASIC.ROOT_DIR, cfg.TRAIN.MODEL_DIR, subject, str(cfg.TRAIN.BATCH_SIZE)+'_'+cfg.TRAIN.LOG_FILE)
     if os.path.exists(log_path):
         os.remove(log_path)
+
+    # test
+    '''out_df_ab, out_df_af = evaluation(val_loader, model, 0, cfg)
+    out_df_list = [out_df_ab, out_df_af]
+    final_result_process(out_df_list, 0, subject, cfg, flag=0)'''
     
     for epoch in range(cfg.TRAIN.END_EPOCH):
         loss_train, cls_loss_af, reg_loss_af, cls_loss_ab, reg_loss_ab = train(cfg, train_loader, model, optimizer)

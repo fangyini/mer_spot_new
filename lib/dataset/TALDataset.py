@@ -82,7 +82,7 @@ class TALDataset(Dataset):
                     new_label = self.info_dict[video_name][start][self.label_type] + 1
                 elif label[0] == 1:
                     new_label = 0
-                label = np.array(new_label).reshape(1)
+                label = np.array(new_label, dtype=int).reshape(1)
 
             num_segment = action.shape[0]
             assert num_segment > 0, 'no action in {}!!!'.format(video_name)
