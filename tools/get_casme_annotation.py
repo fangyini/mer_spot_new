@@ -85,14 +85,16 @@ def get_casme_annotation(rawpic_path, file_path, save_file):
         video_name = df1_dict[sub] + '_' + df2_dict[name]
         full_name = rawpic_dict[video_name]['name']
         if full_name not in database:
-            database[full_name] = {} # {'subset': subset, 'duration(frames)': rawpic_dict[video_name]['len'],  'annotations': []}
+            database[full_name] = {'start': {}, 'end': {}} # {'subset': subset, 'duration(frames)': rawpic_dict[video_name]['len'],  'annotations': []}
         start = int(row['Onset'])
+        end = int(row['Offset'])
 
         type1_counter[row['Type1']] += 1
 
         type1 = type1_dict[row['Type1']]
         type2 = type2_dict[row['Type2']]
-        database[full_name][start] = {'Type1': type1, 'Type2': type2}
+        database[full_name]['start'][start] = {'Type1': type1, 'Type2': type2}
+        database[full_name]['end'][end] = {'Type1': type1, 'Type2': type2}
         '''segment = [row['Onset'], row['Offset']]
         expression = 0 if row['Expression'] == 'macro-expression' else 1
         type1 = type1_dict[row['Type1']]
@@ -106,7 +108,7 @@ def get_casme_annotation(rawpic_path, file_path, save_file):
 if __name__ == '__main__':
     get_casme_annotation('/Users/adia/Documents/HKUST/micro_datasets/CAS(ME)2/rawpic/',
                          '/Users/adia/Documents/HKUST/projects/phase2/actionformer_release-main/data/casme/CAS(ME)2info.xlsx',
-                         'casme2_annotation_micro.json')
+                         '../casme2_gt.json')
 
 
 

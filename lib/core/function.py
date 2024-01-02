@@ -86,6 +86,8 @@ def train(cfg, train_loader, model, optimizer):
     loss_record = 0
     cls_loss_af_record, reg_loss_af_record = 0, 0
     cls_loss_ab_record, reg_loss_ab_record = 0, 0
+
+    #label_dict = {0:0, 1:0, 2:0, 3:0, 4:0}
     for feat_spa, feat_tem, boxes, label, action_num in train_loader:
         optimizer.zero_grad()
 
@@ -93,6 +95,17 @@ def train(cfg, train_loader, model, optimizer):
         feature = feature.type_as(dtype)
         boxes = boxes.float().type_as(dtype)
         label = label.type_as(dtypel)
+
+        '''# calculate
+        b = label.size()[0]
+        for i in range(b):
+            label_i = label[i][:action_num[i]]
+            for j in range(label_i.size()[0]):
+                idx = int(label_i[j].cpu().numpy())
+                label_dict[idx] += 1
+                #print(label_dict)
+        continue'''
+
         # af label
         # we do not calculate binary classification loss for anchor-free branch
         cate_label, reg_label = get_targets_af(cfg, boxes, label, action_num)
@@ -124,6 +137,10 @@ def train(cfg, train_loader, model, optimizer):
         reg_loss_af_record += reg_loss_af.item()
         cls_loss_ab_record += cls_loss_ab.item()
         reg_loss_ab_record += reg_loss_ab.item()
+
+    # to delete later
+    #print(label_dict)
+    #quit()
 
     return loss_record / len(train_loader), cls_loss_af_record / len(train_loader), \
            reg_loss_af_record / len(train_loader), cls_loss_ab_record / len(train_loader), \

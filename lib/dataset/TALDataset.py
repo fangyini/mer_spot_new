@@ -26,6 +26,7 @@ class TALDataset(Dataset):
                 self.info_dict = json.load(fid)
 
         self.gt_overlap_threshold = 0.9
+        self.counter = 0
 
     def __len__(self):
         return len(self.datas)
@@ -76,13 +77,25 @@ class TALDataset(Dataset):
             # label, action = self.get_anno(begin_frame, video_name)
 
             # todo: convert to micro expression type, macro expression to 0
-            if self.is_micro_system == True and label[0] != 0:
-                if label[0] == 2:
-                    start = str(int(begin_frame + action[0][0]))
-                    new_label = self.info_dict[video_name][start][self.label_type] + 1
-                elif label[0] == 1:
-                    new_label = 0
-                label = np.array(new_label, dtype=int).reshape(1)
+            if self.is_micro_system == True:
+                new_label_list = []
+                for idx in range(action.shape[0]):
+                    label_idx = label[idx]
+                    if label_idx == 2:
+                        self.counter += 1
+                        print(self.counter)
+                        start = str(int(begin_frame + action[idx][0]))
+                        try:
+                            new_label = self.info_dict[video_name]['start'][start][self.label_type] + 1
+                        except:
+                            # this is for end
+                            end = str(int(begin_frame + action[idx][1]))
+                            new_label = self.info_dict[video_name]['end'][end][self.label_type] + 1
+                    elif label_idx == 1 or label_idx == 0:
+                        new_label = 0
+                    new_label_list.append(new_label)
+                new_label = np.stack(new_label_list)
+                label = new_label.reshape(action.shape[0])
 
             num_segment = action.shape[0]
             assert num_segment > 0, 'no action in {}!!!'.format(video_name)
