@@ -240,7 +240,7 @@ def main_threshold(path, dataset, annotation, version, label_frequency, start_th
     threshold_out = os.path.join(out_path_tmp, 'threshlod.log')
     if os.path.exists(threshold_out):
         os.remove(threshold_out)
-    for e in range(20, 60):
+    for e in range(24, 60):
         txt_index = txts[e]
         # all subjects in the same epoch
         test_path = [os.path.join(i, 'test_'+str(txt_index).zfill(2)+'.txt') for i in test_path_temp]    
@@ -415,7 +415,7 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='Test')
 
-    # parser.add_argument('--path', type=str, default='/home/yww/1_spot/MSA-Net/output_V28/cas(me)^2_no_new_range_wide_less_S0.1')
+    # parser.add_argument('--path', type=str, default='/home/yww/1_spot/MSA-Net/output_V28_reproduce/cas(me)^2_no_new_range_wide_less_S0.1')
     # parser.add_argument('--ann', type=str, default='/home/yww/1_spot/casme2_annotation.csv')
     # parser.add_argument('--dataset', type=str, default='cas(me)^2')
     # # parser.add_argument('--ann', type=str, default=r'/home/yww/1_spot/cas(me)^2_merge.csv')
@@ -426,7 +426,7 @@ if __name__ == '__main__':
     # parser.add_argument('--start_threshold', type=int, default=300)
     # parser.add_argument('--most_pos_num', type=int, default=15)
 
-    parser.add_argument('--path', type=str, default='./output_V28/cas(me)^2/')
+    parser.add_argument('--path', type=str, default='outputs/output_V28_reproduce/cas(me)^2/')
     parser.add_argument('--ann', type=str, default='./casme2_annotation.csv')
     parser.add_argument('--dataset', type=str, default='cas(me)^2')
     parser.add_argument('--version', type=int, default=28)

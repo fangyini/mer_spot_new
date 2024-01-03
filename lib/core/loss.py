@@ -35,8 +35,9 @@ class Focal_loss(nn.Module):
         self.eps = eps
 
     def forward(self, x, y):
-        t = one_hot_embedding(y, 1 + self.num_classes)
-        t = t[:, 1:]
+        #t = one_hot_embedding(y, 1 + self.num_classes)
+        #t = t[:, 1:]
+        t = one_hot_embedding(y, self.num_classes)
 
         p = x.sigmoid()
         pt = p * t + (1 - p) * (1 - t)  # pt = p if t > 0 else 1-p
