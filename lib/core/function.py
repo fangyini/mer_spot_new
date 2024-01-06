@@ -87,7 +87,8 @@ def train(cfg, train_loader, model, optimizer):
     cls_loss_af_record, reg_loss_af_record = 0, 0
     cls_loss_ab_record, reg_loss_ab_record = 0, 0
 
-    #label_dict = {0:0, 1:0, 2:0, 3:0, 4:0}
+    af_label_dict = {0:0, 1:0, 2:0, 3:0, 4:0}
+    ab_label_dict = {0: 0, 1: 0, 2: 0, 3: 0, 4: 0}
     for feat_spa, feat_tem, boxes, label, action_num in train_loader:
         optimizer.zero_grad()
 
@@ -126,6 +127,18 @@ def train(cfg, train_loader, model, optimizer):
         anchors_x_ls, anchors_w_ls, anchors_rx_ls, anchors_rw_ls, anchors_class_ls, \
         match_xs_ls, match_ws_ls, match_scores_ls, match_labels_ls = ab_prediction_train(cfg, out_ab, label, boxes,
                                                                                          action_num)
+        b = label.size()[0]
+        for i in range(b):
+            label_i = cate_label[i]
+            label_i2 = match_labels_ls[i]
+            for j in range(label_i.size()[0]):
+                idx = int(label_i[j].cpu().numpy())
+                af_label_dict[idx] += 1
+            for j in range(label_i2.size()[0]):
+                idx = int(label_i2[j].cpu().numpy())
+                ab_label_dict[idx] += 1
+
+
         cls_loss_ab, reg_loss_ab = loss_function_ab(anchors_x_ls, anchors_w_ls, anchors_rx_ls, anchors_rw_ls,
                                                     anchors_class_ls, match_xs_ls, match_ws_ls,
                                                     match_scores_ls, match_labels_ls, cfg)
@@ -139,8 +152,9 @@ def train(cfg, train_loader, model, optimizer):
         reg_loss_ab_record += reg_loss_ab.item()
 
     # to delete later
-    #print(label_dict)
-    #quit()
+    print(af_label_dict)
+    print(ab_label_dict)
+    quit()
 
     return loss_record / len(train_loader), cls_loss_af_record / len(train_loader), \
            reg_loss_af_record / len(train_loader), cls_loss_ab_record / len(train_loader), \
