@@ -149,6 +149,7 @@ def train(cfg, train_loader, model, optimizer):
 
 def evaluation(val_loader, model, epoch, cfg):
     model.eval()
+    softmax = nn.Softmax(dim=2)
 
     strides = [
         torch.tensor(cfg.MODEL.TEMPORAL_STRIDE[i]).expand(
@@ -171,7 +172,7 @@ def evaluation(val_loader, model, epoch, cfg):
         anchors_class_ls, anchors_x_ls, anchors_w_ls = ab_predict_eval(cfg, out_ab)
 
         # classification score
-        anchors_class_ls = torch.sigmoid(anchors_class_ls)
+        anchors_class_ls = softmax(anchors_class_ls) #torch.sigmoid(anchors_class_ls)
         cls_score = anchors_class_ls.detach().cpu().numpy()
 
         # regression
@@ -194,7 +195,8 @@ def evaluation(val_loader, model, epoch, cfg):
         preds_cls, preds_reg = out_af
         # m = nn.Softmax(dim=2).cuda()
         # preds_cls = m(preds_cls)
-        preds_cls = preds_cls.sigmoid()
+        #preds_cls = preds_cls.sigmoid()
+        preds_cls = softmax(preds_cls)
         if cfg.MODEL.NORM_ON_BBOX:
             assert strides.size(0) == preds_reg.size(1)
             preds_reg = preds_reg * strides[None, :, None].expand_as(preds_reg)

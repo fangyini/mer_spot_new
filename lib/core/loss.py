@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from focal_loss.focal_loss import FocalLoss
 
 
 dtype = torch.cuda.FloatTensor() if torch.cuda.is_available() else torch.FloatTensor()
@@ -26,7 +27,7 @@ def one_hot_embedding(labels, num_classes):
     return y[labels]           
 
 
-class Focal_loss(nn.Module):
+'''class Focal_loss(nn.Module):
     def __init__(self, alpha=0.25, gamma=2, num_classes=20, eps=1e-6):
         super(Focal_loss, self).__init__()
         self.alpha = alpha
@@ -44,7 +45,20 @@ class Focal_loss(nn.Module):
         pt = pt.clamp(min=self.eps)  # avoid log(0)
         w = self.alpha * t + (1 - self.alpha) * (1 - t)  # w = alpha if t > 0 else 1-alpha
         loss = -(w * (1 - pt).pow(self.gamma) * torch.log(pt))
-        return loss.sum()
+        return loss.sum()'''
+
+
+class Focal_loss(nn.Module):
+    def __init__(self, class_weight=[1/89.31, 1/1.5, 1/4.06, 1/1.95, 1/3.17], gamma=2):
+        super(Focal_loss, self).__init__()
+        weights = torch.FloatTensor(class_weight)
+        self.criterion = FocalLoss(gamma=gamma, weights=weights)
+        self.m = torch.nn.Softmax(dim=-1)
+
+    def forward(self, logits, target):
+        prob = self.m(logits)
+        loss = self.criterion(prob, target)
+        return loss
 
 
 def loss_function_ab(anchors_x, anchors_w, anchors_rx_ls, anchors_rw_ls, anchors_class,
@@ -66,7 +80,8 @@ def loss_function_ab(anchors_x, anchors_w, anchors_rx_ls, anchors_rw_ls, anchors
     keep = (pmask.float() + nmask.float()) > 0
     anchors_class = anchors_class.view(-1, cfg.DATASET.NUM_CLASSES)[keep]
     match_labels = match_labels.view(-1)[keep]
-    cls_loss_f = Focal_loss(num_classes=cfg.DATASET.NUM_CLASSES)
+    #cls_loss_f = Focal_loss(num_classes=cfg.DATASET.NUM_CLASSES)
+    cls_loss_f = Focal_loss()
     cls_loss = cls_loss_f(anchors_class, match_labels) / torch.sum(pmask)
 
     # localization loss
@@ -132,7 +147,7 @@ def loss_function_af(cate_label, preds_cls, target_loc, pred_loc, cfg):
     else:
         reg_loss = torch.tensor(0.).type_as(dtype)
     # cls loss
-    cate_loss_f = Focal_loss(num_classes=cfg.DATASET.NUM_CLASSES)
+    cate_loss_f = Focal_loss() #(num_classes=cfg.DATASET.NUM_CLASSES)
     cate_loss = cate_loss_f(preds_cls_view, cate_label_view) / (torch.sum(pmask) + batch_size)  # avoid no positive
 
     return cate_loss, reg_loss

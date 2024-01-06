@@ -37,6 +37,7 @@ def tiou(anchors_min, anchors_max, len_anchors, box_min, box_max):
 def weight_init(m):
     if isinstance(m, nn.Conv1d):
         init.kaiming_uniform_(m.weight)
+        #init.normal_(m.weight, 0, 0.01)
         if m.bias is not None:
             m.bias.data.zero_()
 
