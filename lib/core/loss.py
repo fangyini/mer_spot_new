@@ -27,7 +27,7 @@ def one_hot_embedding(labels, num_classes):
     return y[labels]           
 
 
-class Focal_loss(nn.Module): # [1/89.31, 1/1.5, 1/4.06, 1/1.95, 1/3.17]
+'''class Focal_loss(nn.Module): # [1/89.31, 1/1.5, 1/4.06, 1/1.95, 1/3.17]
     def __init__(self, alpha=[1/89.31, 1/1.5, 1/4.06, 1/1.95, 1/3.17], gamma=0.5, num_classes=5, eps=1e-6):
         super(Focal_loss, self).__init__()
         #self.alpha = alpha
@@ -40,7 +40,7 @@ class Focal_loss(nn.Module): # [1/89.31, 1/1.5, 1/4.06, 1/1.95, 1/3.17]
     def forward(self, x, y):
         #t = one_hot_embedding(y, 1 + self.num_classes)
         #t = t[:, 1:]
-        '''t = one_hot_embedding(y, self.num_classes)
+        t = one_hot_embedding(y, self.num_classes)
 
         p = x.sigmoid()
         pt = p * t + (1 - p) * (1 - t)  # pt = p if t > 0 else 1-p
@@ -49,7 +49,7 @@ class Focal_loss(nn.Module): # [1/89.31, 1/1.5, 1/4.06, 1/1.95, 1/3.17]
         w = alpha * t + (1 - alpha) * (1 - t)  # w = alpha if t > 0 else 1-alpha
         loss = -(w * (1 - pt).pow(self.gamma) * torch.log(pt))
         res = loss.sum()
-        return res # 295, 1505'''
+        return res # 295, 1505
         
         with torch.no_grad():
             t = one_hot_embedding(y, self.num_classes)
@@ -60,25 +60,26 @@ class Focal_loss(nn.Module): # [1/89.31, 1/1.5, 1/4.06, 1/1.95, 1/3.17]
         pt = p * t
         non_zero = torch.where(t > 0)
         loss = -(weight[non_zero] * (1-pt[non_zero]).pow(self.gamma) * torch.log(pt[non_zero]))
-        '''pos = torch.where(y > 0)
+        pos = torch.where(y > 0)
         neg = torch.where(y == 0)
-        loss_pos = loss[pos] # 0.21
-        loss_neg = loss[neg].sum() # 4.042'''
+        loss_pos = loss[pos].mean()
+        loss_neg = loss[neg].mean()
         res = loss.sum()
-        return res # 4.2523, 16.8037, 4.2243, 16.1491
+        return res'''
 
 
-'''class Focal_loss(nn.Module):
-    def __init__(self, class_weight=[1/89.31, 1/1.5, 1/4.06, 1/1.95, 1/3.17], gamma=2):
+class Focal_loss(nn.Module):
+    def __init__(self, alpha=[1/89.31, 1/1.5, 1/4.06, 1/1.95, 1/3.17], gamma=2):
         super(Focal_loss, self).__init__()
-        weights = torch.FloatTensor(class_weight).type_as(dtype)
-        self.criterion = FocalLoss(gamma=gamma, weights=weights)
+        weights = torch.FloatTensor(alpha).type_as(dtype)
+        self.criterion = FocalLoss(gamma=gamma, weights=weights, reduction='sum')
         self.m = torch.nn.Softmax(dim=-1)
 
     def forward(self, logits, target):
         prob = self.m(logits)
+        print(prob[:5])
         loss = self.criterion(prob, target)
-        return loss'''
+        return loss
 
 '''class Focal_loss(nn.Module):
     def __init__(self, alpha=[1/89.31, 1/1.5, 1/4.06, 1/1.95, 1/3.17], gamma=2):

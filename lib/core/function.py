@@ -140,7 +140,6 @@ def train(cfg, train_loader, model, optimizer):
                 idx = int(label_i2[j].cpu().numpy())
                 ab_label_dict[idx] += 1'''
 
-
         cls_loss_ab, reg_loss_ab = loss_function_ab(anchors_x_ls, anchors_w_ls, anchors_rx_ls, anchors_rw_ls,
                                                     anchors_class_ls, match_xs_ls, match_ws_ls,
                                                     match_scores_ls, match_labels_ls, cfg, ab_weight)
