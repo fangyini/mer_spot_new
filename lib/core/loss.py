@@ -27,12 +27,15 @@ def one_hot_embedding(labels, num_classes):
 
 
 class Focal_loss(nn.Module):
-    def __init__(self, alpha=0.25, gamma=2, num_classes=20, eps=1e-6):
+    def __init__(self, alpha=[0.25, 0.75], gamma=2, num_classes=20, eps=1e-6):
         super(Focal_loss, self).__init__()
-        self.alpha = alpha
+        #self.alpha = alpha
         self.gamma = gamma
         self.num_classes = num_classes
         self.eps = eps
+
+        self.softmax = nn.Softmax(dim=-1)
+        self.alpha = torch.tensor(alpha).type_as(dtype).unsqueeze(0)
 
     def forward(self, x, y):
         t = one_hot_embedding(y, 1 + self.num_classes)
@@ -41,9 +44,18 @@ class Focal_loss(nn.Module):
         p = x.sigmoid()
         pt = p * t + (1 - p) * (1 - t)  # pt = p if t > 0 else 1-p
         pt = pt.clamp(min=self.eps)  # avoid log(0)
-        w = self.alpha * t + (1 - self.alpha) * (1 - t)  # w = alpha if t > 0 else 1-alpha
+        w = 0.25 * t + (1 - 0.25) * (1 - t)  # w = alpha if t > 0 else 1-alpha
         loss = -(w * (1 - pt).pow(self.gamma) * torch.log(pt))
-        return loss.sum()
+        res = loss.sum()
+        return res
+
+        '''t = one_hot_embedding(y, 1 + self.num_classes)
+        t = t[:, 1:]
+        p = self.softmax(x)
+        w = self.alpha.repeat(p.size()[0], 1)
+        loss = -(w * (1 - p).pow(self.gamma) * torch.log(p) * t)
+        res = loss.sum()
+        return res'''
 
 
 def loss_function_ab(anchors_x, anchors_w, anchors_rx_ls, anchors_rw_ls, anchors_class,

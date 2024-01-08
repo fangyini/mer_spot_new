@@ -158,6 +158,7 @@ def evaluation(val_loader, model, epoch, cfg):
 
     out_df_ab = pd.DataFrame(columns=cfg.TEST.OUTDF_COLUMNS_AB)
     out_df_af = pd.DataFrame(columns=cfg.TEST.OUTDF_COLUMNS_AF)
+    m = nn.Softmax(dim=-1)#.cuda()
     for feat_spa, feat_tem, begin_frame, video_name in val_loader:
         begin_frame = begin_frame.detach().numpy()
 
@@ -171,7 +172,7 @@ def evaluation(val_loader, model, epoch, cfg):
         anchors_class_ls, anchors_x_ls, anchors_w_ls = ab_predict_eval(cfg, out_ab)
 
         # classification score
-        anchors_class_ls = torch.sigmoid(anchors_class_ls)
+        anchors_class_ls = torch.sigmoid(anchors_class_ls) #m(anchors_class_ls) #
         cls_score = anchors_class_ls.detach().cpu().numpy()
 
         # regression
@@ -192,8 +193,8 @@ def evaluation(val_loader, model, epoch, cfg):
 
         ################################ anchor-free ###############################
         preds_cls, preds_reg = out_af
-        # m = nn.Softmax(dim=2).cuda()
-        # preds_cls = m(preds_cls)
+
+        #preds_cls = m(preds_cls)
         preds_cls = preds_cls.sigmoid()
         if cfg.MODEL.NORM_ON_BBOX:
             assert strides.size(0) == preds_reg.size(1)

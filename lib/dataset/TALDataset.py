@@ -26,7 +26,6 @@ class TALDataset(Dataset):
                 self.info_dict = json.load(fid)
 
         self.gt_overlap_threshold = 0.9
-        self.counter = 0
 
     def __len__(self):
         return len(self.datas)
@@ -82,8 +81,6 @@ class TALDataset(Dataset):
                 for idx in range(action.shape[0]):
                     label_idx = label[idx]
                     if label_idx == 2:
-                        self.counter += 1
-                        print(self.counter)
                         start = str(int(begin_frame + action[idx][0]))
                         try:
                             new_label = self.info_dict[video_name]['start'][start][self.label_type] + 1
