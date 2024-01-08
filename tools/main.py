@@ -45,6 +45,7 @@ def main(subject, config):
     model = FuseModel(cfg)
     model.apply(weight_init)
     model.to(DEVICE)
+    #model.loc_net.pred.init_last_conv()
     
     # optimizer
     # warm_up_with_cosine_lr

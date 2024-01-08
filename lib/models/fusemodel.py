@@ -3,6 +3,7 @@ import torch
 import torch.nn.functional as F
 from .backbones import ConvTransformerBackbone
 from .blocks import LocalMaskedMHCA, MaskedMHCA
+import math
 
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 class Mish(nn.Module):
@@ -320,6 +321,12 @@ class PredHead(nn.Module):
         ab_cls = nn.Conv1d(cfg.MODEL.HEAD_DIM, num_box * num_class, kernel_size=3, padding=1)
         ab_reg = nn.Conv1d(cfg.MODEL.HEAD_DIM, num_box * 2, kernel_size=3, padding=1)
         self.pred_heads = nn.ModuleList([af_cls, af_reg, ab_cls, ab_reg])
+        self.bias_value = -math.log((1-0.01)/0.01)
+
+    def init_last_conv(self):
+        self.pred_heads[0].bias.data.fill_(self.bias_value)
+        self.pred_heads[2].bias.data.fill_(self.bias_value)
+
 
     def forward(self, x):
         preds = []
