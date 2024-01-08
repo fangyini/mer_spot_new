@@ -65,14 +65,17 @@ def get_casme_annotation(rawpic_path, file_path, save_file):
         if row[0] not in type2_dict:
             type2_dict[row[0]] = row[1]
 
+    type1_counter = {'negative': 0, 'positive': 0, 'others': 0, 'surprise': 0}
+
+
     # iterate df0
     for ind in df0.index:
         # video_name: no subset, duration(frames), annotation: [{label, segment(frames), label_id}]
         # make s15 as subset first
         row = df0.iloc[ind]
-        # todo: exclude macro expression for now
-        if row['Expression'] == 'macro-expression':
-            continue
+
+        #if row['Expression'] == 'macro-expression':
+        #    continue
         sub = row['Sub']
         if sub == 1:
             subset = 'Test'
@@ -82,11 +85,20 @@ def get_casme_annotation(rawpic_path, file_path, save_file):
         video_name = df1_dict[sub] + '_' + df2_dict[name]
         full_name = rawpic_dict[video_name]['name']
         if full_name not in database:
-            database[full_name] = {} # {'subset': subset, 'duration(frames)': rawpic_dict[video_name]['len'],  'annotations': []}
+            database[full_name] = {'micro': {'start': {}, 'end': {}}, 'macro': {'start': {}, 'end': {}}} # {'subset': subset, 'duration(frames)': rawpic_dict[video_name]['len'],  'annotations': []}
+        if row['Expression'] == 'macro-expression':
+            expression = 'macro'
+        elif row['Expression'] == 'micro-expression':
+            expression = 'micro'
         start = int(row['Onset'])
+        end = int(row['Offset'])
+
+        type1_counter[row['Type1']] += 1
+
         type1 = type1_dict[row['Type1']]
         type2 = type2_dict[row['Type2']]
-        database[full_name][start] = {'Type1': type1, 'Type2': type2}
+        database[full_name][expression]['start'][start] = {'Type1': type1, 'Type2': type2}
+        database[full_name][expression]['end'][end] = {'Type1': type1, 'Type2': type2}
         '''segment = [row['Onset'], row['Offset']]
         expression = 0 if row['Expression'] == 'macro-expression' else 1
         type1 = type1_dict[row['Type1']]
@@ -100,7 +112,7 @@ def get_casme_annotation(rawpic_path, file_path, save_file):
 if __name__ == '__main__':
     get_casme_annotation('/Users/adia/Documents/HKUST/micro_datasets/CAS(ME)2/rawpic/',
                          '/Users/adia/Documents/HKUST/projects/phase2/actionformer_release-main/data/casme/CAS(ME)2info.xlsx',
-                         'casme2_annotation_micro.json')
+                         '../casme2_gt.json')
 
 
 
