@@ -91,8 +91,10 @@ def train(cfg, train_loader, model, optimizer):
     af_weight = np.sum(af_weight) / af_weight
     ab_weight = [242729, 5816, 1055]
     ab_weight = np.sum(ab_weight) / ab_weight'''
-    af_weight = [0.001, 1, 1]
-    ab_weight = [0.001, 1, 1]
+    af_weight = [27, 73, 35, 57, 304, 288, 53, 181] # [0.001, 1, 1]
+    af_weight = np.sum(af_weight) / af_weight / 20
+    ab_weight = [27, 73, 35, 57, 304, 288, 53, 181] # [0.001, 1, 1]
+    ab_weight = np.sum(ab_weight) / ab_weight / 20
     for feat_spa, feat_tem, boxes, label, action_num in train_loader:
         optimizer.zero_grad()
 

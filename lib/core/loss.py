@@ -33,12 +33,12 @@ class Focal_loss(nn.Module):
         self.gamma = gamma
         self.num_classes = num_classes
         self.eps = eps
-        self.class_weight = torch.tensor(class_weight).type_as(dtype)
+        self.class_weight = torch.tensor(class_weight).type_as(dtype) if class_weight is not None else None
 
     def forward(self, x, y):
-        #t = one_hot_embedding(y, 1 + self.num_classes)
-        #t = t[:, 1:]
-        t = one_hot_embedding(y, self.num_classes)
+        t = one_hot_embedding(y, 1 + self.num_classes)
+        t = t[:, 1:]
+        #t = one_hot_embedding(y, self.num_classes)
 
         p = x.sigmoid()
         pt = p * t + (1 - p) * (1 - t)  # pt = p if t > 0 else 1-p
