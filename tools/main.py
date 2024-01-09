@@ -79,7 +79,8 @@ def main(subject, config):
         lr = scheduler.get_last_lr()
 
         if (epoch+1) % cfg.TEST.EVAL_INTERVAL == 0:
-            #save_model(cfg, epoch=epoch, model=model, optimizer=optimizer, subject=subject)
+            if cfg.BASIC.SAVE_MODEL == True and epoch > 20:
+                save_model(cfg, epoch=epoch, model=model, optimizer=optimizer, subject=subject)
             out_df_ab, out_df_af = evaluation(val_loader, model, epoch, cfg)
             out_df_list = [out_df_ab, out_df_af]
             final_result_process(out_df_list, epoch, subject, cfg, flag=0)

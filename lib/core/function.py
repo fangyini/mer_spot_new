@@ -91,7 +91,7 @@ def train(cfg, train_loader, model, optimizer):
     af_weight = np.sum(af_weight) / af_weight
     ab_weight = [242729, 5816, 1055]
     ab_weight = np.sum(ab_weight) / ab_weight'''
-    if cfg.DATASET.NUM_CLASSES == 2:
+    if cfg.DATASET.MICRO_SYSTEM == False:
         af_weight = ab_weight = None
     else:
         af_weight = [27, 73, 35, 57, 304, 288, 53, 181] # [0.001, 1, 1]
