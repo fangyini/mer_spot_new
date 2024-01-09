@@ -76,7 +76,7 @@ def result_process_ab(video_names, video_len, start_frames, anchors_class, ancho
     conf_tmp = np.reshape(max_values, num_element)
     out_df['conf'] = conf_tmp
     max_idxs = np.argmax(scores_action, axis=2)
-    max_idxs = max_idxs + 1
+    #max_idxs = max_idxs + 1
     cate_idx_tmp = np.reshape(max_idxs, num_element)
     # Notice: convert index into category type
     class_real = cfg.DATASET.CLASS_IDX
@@ -127,7 +127,7 @@ def result_process_af(video_names, start_frames, cls_scores, anchors_xmin, ancho
     conf_tmp = np.reshape(max_values, num_element)
     out_df['conf'] = conf_tmp
     max_idxs = np.argmax(scores_action, axis=2)
-    max_idxs = max_idxs + 1
+    #max_idxs = max_idxs + 1
     cate_idx_tmp = np.reshape(max_idxs, num_element)
     # Notice: convert index into category type
     class_real = cfg.DATASET.CLASS_IDX

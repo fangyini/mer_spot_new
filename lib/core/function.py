@@ -1,3 +1,4 @@
+import numpy as np
 import torch
 import torch.nn as nn
 import pandas as pd
@@ -86,6 +87,12 @@ def train(cfg, train_loader, model, optimizer):
     loss_record = 0
     cls_loss_af_record, reg_loss_af_record = 0, 0
     cls_loss_ab_record, reg_loss_ab_record = 0, 0
+    '''af_weight = [48466, 1288, 166]
+    af_weight = np.sum(af_weight) / af_weight
+    ab_weight = [242729, 5816, 1055]
+    ab_weight = np.sum(ab_weight) / ab_weight'''
+    af_weight = [0.001, 1, 1]
+    ab_weight = [0.001, 1, 1]
     for feat_spa, feat_tem, boxes, label, action_num in train_loader:
         optimizer.zero_grad()
 
@@ -105,7 +112,7 @@ def train(cfg, train_loader, model, optimizer):
         preds_cls, preds_reg = out_af
         preds_loc = reg2loc(cfg, preds_reg)
         target_loc = reg2loc(cfg, reg_label)
-        cls_loss_af, reg_loss_af = loss_function_af(cate_label, preds_cls, target_loc, preds_loc, cfg)
+        cls_loss_af, reg_loss_af = loss_function_af(cate_label, preds_cls, target_loc, preds_loc, cfg, af_weight)
 
         # Loss for anchor-based module, including clasification loss, overlap loss and regression loss
         # anchors_class_ls: bs, sum_i(ti*n_box), n_class
@@ -115,7 +122,7 @@ def train(cfg, train_loader, model, optimizer):
                                                                                          action_num)
         cls_loss_ab, reg_loss_ab = loss_function_ab(anchors_x_ls, anchors_w_ls, anchors_rx_ls, anchors_rw_ls,
                                                     anchors_class_ls, match_xs_ls, match_ws_ls,
-                                                    match_scores_ls, match_labels_ls, cfg)
+                                                    match_scores_ls, match_labels_ls, cfg, ab_weight)
         loss = cls_loss_af + reg_loss_af + cls_loss_ab + reg_loss_ab
         loss.backward()
         optimizer.step()

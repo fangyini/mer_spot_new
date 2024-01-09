@@ -27,12 +27,13 @@ def one_hot_embedding(labels, num_classes):
 
 
 class Focal_loss(nn.Module):
-    def __init__(self, alpha=0.25, gamma=2, num_classes=20, eps=1e-6):
+    def __init__(self, alpha=0.25, gamma=2, num_classes=20, eps=1e-6, class_weight=None):
         super(Focal_loss, self).__init__()
         self.alpha = alpha
         self.gamma = gamma
         self.num_classes = num_classes
         self.eps = eps
+        self.class_weight = torch.tensor(class_weight).type_as(dtype)
 
     def forward(self, x, y):
         #t = one_hot_embedding(y, 1 + self.num_classes)
@@ -44,11 +45,14 @@ class Focal_loss(nn.Module):
         pt = pt.clamp(min=self.eps)  # avoid log(0)
         w = self.alpha * t + (1 - self.alpha) * (1 - t)  # w = alpha if t > 0 else 1-alpha
         loss = -(w * (1 - pt).pow(self.gamma) * torch.log(pt))
+        loss = loss.sum(dim=0)
+        if self.class_weight is not None:
+            loss = self.class_weight * loss
         return loss.sum()
 
 
 def loss_function_ab(anchors_x, anchors_w, anchors_rx_ls, anchors_rw_ls, anchors_class,
-                     match_x, match_w, match_scores, match_labels, cfg):
+                     match_x, match_w, match_scores, match_labels, cfg, weight):
     '''
     calculate classification loss, localization loss and overlap_loss
     pmask, hmask and nmask are used to select training samples
@@ -66,7 +70,7 @@ def loss_function_ab(anchors_x, anchors_w, anchors_rx_ls, anchors_rw_ls, anchors
     keep = (pmask.float() + nmask.float()) > 0
     anchors_class = anchors_class.view(-1, cfg.DATASET.NUM_CLASSES)[keep]
     match_labels = match_labels.view(-1)[keep]
-    cls_loss_f = Focal_loss(num_classes=cfg.DATASET.NUM_CLASSES)
+    cls_loss_f = Focal_loss(num_classes=cfg.DATASET.NUM_CLASSES, class_weight=weight)
     cls_loss = cls_loss_f(anchors_class, match_labels) / torch.sum(pmask)
 
     # localization loss
@@ -112,7 +116,7 @@ def iou_loss(pred, target):
     return loss
 
 
-def loss_function_af(cate_label, preds_cls, target_loc, pred_loc, cfg):
+def loss_function_af(cate_label, preds_cls, target_loc, pred_loc, cfg, weight):
     '''
     preds_cls: bs, t1+t2+..., n_class
     pred_regs_batch: bs, t1+t2+..., 2
@@ -132,7 +136,7 @@ def loss_function_af(cate_label, preds_cls, target_loc, pred_loc, cfg):
     else:
         reg_loss = torch.tensor(0.).type_as(dtype)
     # cls loss
-    cate_loss_f = Focal_loss(num_classes=cfg.DATASET.NUM_CLASSES)
+    cate_loss_f = Focal_loss(num_classes=cfg.DATASET.NUM_CLASSES, class_weight=weight)
     cate_loss = cate_loss_f(preds_cls_view, cate_label_view) / (torch.sum(pmask) + batch_size)  # avoid no positive
 
     return cate_loss, reg_loss
