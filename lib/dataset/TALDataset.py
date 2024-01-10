@@ -26,6 +26,7 @@ class TALDataset(Dataset):
                 self.info_dict = json.load(fid)
 
         self.gt_overlap_threshold = 0.9
+        self.cfg = cfg
 
     def __len__(self):
         return len(self.datas)
@@ -65,6 +66,7 @@ class TALDataset(Dataset):
         begin_frame = data['begin_frame']
         # pass video_name vis list
         video_name = str(data['vid_name'])
+        NUM_OF_TYPE = self.cfg.DATASET.NUM_OF_TYPE
 
         if self.split == self.train_split:
             action = data['action']
@@ -75,7 +77,6 @@ class TALDataset(Dataset):
             # data for anchor-based
             # label, action = self.get_anno(begin_frame, video_name)
 
-            # todo: convert to micro expression type, macro expression to 0
             if self.is_micro_system == True:
                 new_label_list = []
                 for idx in range(action.shape[0]):
@@ -83,21 +84,29 @@ class TALDataset(Dataset):
                     if label_idx == 2:
                         start = str(int(begin_frame + action[idx][0]))
                         try:
-                            new_label = self.info_dict[video_name]['micro']['start'][start][self.label_type] + 1
+                            new_label = self.info_dict[video_name]['micro']['start'][start][self.label_type]
                         except:
                             # this is for end
                             end = str(int(begin_frame + action[idx][1]))
-                            new_label = self.info_dict[video_name]['micro']['end'][end][self.label_type] + 1
+                            new_label = self.info_dict[video_name]['micro']['end'][end][self.label_type]
+                        if new_label == 3: # exclude others type
+                            new_label = 0
+                        else:
+                            new_label += 1
                     elif label_idx == 0:
                         new_label = 0
                     elif label_idx == 1:
                         start = str(int(begin_frame + action[idx][0]))
                         try:
-                            new_label = self.info_dict[video_name]['macro']['start'][start][self.label_type] + 1 + 4
+                            new_label = self.info_dict[video_name]['macro']['start'][start][self.label_type]
                         except:
                             # this is for end
                             end = str(int(begin_frame + action[idx][1]))
-                            new_label = self.info_dict[video_name]['macro']['end'][end][self.label_type] + 1 + 4
+                            new_label = self.info_dict[video_name]['macro']['end'][end][self.label_type]
+                        if new_label == 3:
+                            new_label = 0
+                        else:
+                            new_label += (1 + NUM_OF_TYPE)
                     new_label_list.append(new_label)
                 new_label = np.stack(new_label_list)
                 label = new_label.reshape(action.shape[0])

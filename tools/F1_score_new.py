@@ -240,7 +240,7 @@ def main_threshold(path, dataset, annotation, version, label_frequency, start_th
     threshold_out = os.path.join(out_path_tmp, 'threshlod.log')
     if os.path.exists(threshold_out):
         os.remove(threshold_out)
-    for e in range(4, 60):
+    for e in range(20, 60):
         txt_index = txts[e]
         # all subjects in the same epoch
         test_path = [os.path.join(i, 'test_'+str(txt_index).zfill(2)+'.txt') for i in test_path_temp]    
@@ -426,12 +426,12 @@ if __name__ == '__main__':
     # parser.add_argument('--start_threshold', type=int, default=300)
     # parser.add_argument('--most_pos_num', type=int, default=15)
 
-    parser.add_argument('--path', type=str, default='/home/yww/1_spot/MSA-Net/output_V28/samm_5')
-    parser.add_argument('--ann', type=str, default='/home/yww/1_spot/samm_annotation_merge.csv')
-    parser.add_argument('--dataset', type=str, default='samm')
+    parser.add_argument('--path', type=str, default='output_V28/cas(me)^2')
+    parser.add_argument('--ann', type=str, default='casme_annotation.csv')
+    parser.add_argument('--dataset', type=str, default='cas(me)^2')
     parser.add_argument('--version', type=int, default=28)
     parser.add_argument('--top_k', type=bool, default=False)
-    parser.add_argument('--label_frequency', type=float, default=5.0)
+    parser.add_argument('--label_frequency', type=float, default=1.0)
     parser.add_argument('--start_threshold', type=int, default=100)
     parser.add_argument('--most_pos_num', type=int, default=70)
     

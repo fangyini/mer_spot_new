@@ -91,6 +91,7 @@ def train(cfg, train_loader, model, optimizer):
     af_weight = np.sum(af_weight) / af_weight
     ab_weight = [242729, 5816, 1055]
     ab_weight = np.sum(ab_weight) / ab_weight'''
+    #label_dict = {0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5:0, 6:0, 7:0, 8:0}
     if cfg.DATASET.MICRO_SYSTEM == False or cfg.MODEL.CLS_BRANCH == True:
         af_weight = ab_weight = None
     else:
@@ -106,6 +107,17 @@ def train(cfg, train_loader, model, optimizer):
         feature = feature.type_as(dtype)
         boxes = boxes.float().type_as(dtype)
         label = label.type_as(dtypel)
+
+        # calculate
+        '''b = label.size()[0]
+        for i in range(b):
+            label_i = label[i][:action_num[i]]
+            for j in range(label_i.size()[0]):
+                idx = int(label_i[j].cpu().numpy())
+                label_dict[idx] += 1
+                # print(label_dict)
+        continue'''
+
         # af label
         # we do not calculate binary classification loss for anchor-free branch
         cate_label, reg_label = get_targets_af(cfg, boxes, label, action_num)
@@ -138,6 +150,10 @@ def train(cfg, train_loader, model, optimizer):
         reg_loss_af_record += reg_loss_af.item()
         cls_loss_ab_record += cls_loss_ab.item()
         reg_loss_ab_record += reg_loss_ab.item()
+
+    # to delete later
+    #print(label_dict)
+    #quit()
 
     return loss_record / len(train_loader), cls_loss_af_record / len(train_loader), \
            reg_loss_af_record / len(train_loader), cls_loss_ab_record / len(train_loader), \
