@@ -52,7 +52,20 @@ def main(subject, config):
     model = FuseModel(cfg)
     model.apply(weight_init)
     model.to(DEVICE)
-    
+
+    if cfg.BASIC.LOAD_MODEL is not None:
+        PATH = cfg.BASIC.LOAD_MODEL + '/' + subject + '/' + 'model_' + str(cfg.BASIC.MODEL_NUM) + '.pth'
+        checkpoint = torch.load(PATH, map_location=torch.device(DEVICE))
+        model.load_state_dict(checkpoint['model'], strict=False)
+
+    if cfg.BASIC.FREEZE == True:
+        assert cfg.BASIC.LOAD_MODEL is not None
+        params_to_freeze = checkpoint['model']
+        for name, param in model.named_parameters():
+            print(param.requires_grad)
+            param.requires_grad = False if name in params_to_freeze else True
+            print(param.requires_grad)
+
     # optimizer
     # warm_up_with_cosine_lr
     # optimizer = optim.SGD(model.parameters(), lr=cfg.TRAIN.LR, momentum=0.9, nesterov=True)
@@ -99,10 +112,7 @@ def main(subject, config):
 
 
 if __name__ == '__main__':
-
     parser = argparse.ArgumentParser(description='MER SPOT')
-    # parser.add_argument('--cfg', type=str, help='experiment config file', default='/home/yww/mer_spot/experiments/CAS.yaml')
-    # parser.add_argument('--dataset', type=str, default='cas(me)^2')
     parser.add_argument('--cfg', type=str, help='experiment config file', default='experiments/CAS.yaml')
     parser.add_argument('--dataset', type=str, default='cas(me)^2')
     args = parser.parse_args()
