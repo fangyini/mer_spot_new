@@ -68,8 +68,12 @@ def main(subject, config):
     # warm_up_with_cosine_lr
     # optimizer = optim.SGD(model.parameters(), lr=cfg.TRAIN.LR, momentum=0.9, nesterov=True)
     optimizer = optim.Adam(model.parameters(), lr=cfg.TRAIN.LR)
-    warm_up_with_cosine_lr = lambda epoch: epoch / cfg.TRAIN.WARM_UP_EPOCH if epoch <= cfg.TRAIN.WARM_UP_EPOCH else 0.5 * ( math.cos((epoch - cfg.TRAIN.WARM_UP_EPOCH) /(cfg.TRAIN.END_EPOCH - cfg.TRAIN.WARM_UP_EPOCH) * math.pi) + 1)
-    scheduler = torch.optim.lr_scheduler.LambdaLR( optimizer, lr_lambda=warm_up_with_cosine_lr)
+    if cfg.TRAIN.WARM_UP_EPOCH != 0:
+        warm_up_with_cosine_lr = lambda epoch: epoch / cfg.TRAIN.WARM_UP_EPOCH if epoch <= cfg.TRAIN.WARM_UP_EPOCH else 0.5 * ( math.cos((epoch - cfg.TRAIN.WARM_UP_EPOCH) /(cfg.TRAIN.END_EPOCH - cfg.TRAIN.WARM_UP_EPOCH) * math.pi) + 1)
+    else:
+        warm_up_with_cosine_lr = lambda \
+            epoch: 0.5 * (math.cos((epoch - cfg.TRAIN.WARM_UP_EPOCH) / (cfg.TRAIN.END_EPOCH - cfg.TRAIN.WARM_UP_EPOCH) * math.pi) + 1)
+    scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=warm_up_with_cosine_lr)
     
     # data loader
     train_dset = TALDataset(cfg, cfg.DATASET.TRAIN_SPLIT, subject)
