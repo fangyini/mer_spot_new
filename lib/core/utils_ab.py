@@ -75,7 +75,24 @@ def result_process_ab(video_names, video_len, start_frames, anchors_class, ancho
     max_values = np.amax(scores_action, axis=2)
     conf_tmp = np.reshape(max_values, num_element)
     out_df['conf'] = conf_tmp
-    max_idxs = np.argmax(scores_action, axis=2)
+    if cfg.MODEL.CLS_BRANCH == False:
+        max_idxs = np.argmax(scores_action, axis=2)
+    else:
+        num_macro_type = int(cfg.DATASET.NUM_CLASSES / cfg.DATASET.NUM_OF_TYPE)
+        num_of_type = cfg.DATASET.NUM_OF_TYPE
+        macro_type = scores_action[:,:,:num_macro_type]
+        max_idxs_macro_type = np.argmax(macro_type, axis=2)
+        micro_type = scores_action[:,:,num_macro_type:]
+
+        max_idxs = np.zeros((max_idxs_macro_type.shape), dtype=int)
+        for i in range(max_idxs.shape[0]):
+            for j in range(max_idxs.shape[1]):
+                macro_type_i = max_idxs_macro_type[i][j] # 0 macro first 4, +4 or 1 micro, last 4
+                if macro_type_i == 0:
+                    micro_type_i = np.argmax(micro_type[i][j][:num_of_type]) + num_of_type
+                elif macro_type_i == 1:
+                    micro_type_i = np.argmax(micro_type[i][j][num_of_type:])
+                max_idxs[i][j] = micro_type_i
     max_idxs = max_idxs + 1
     cate_idx_tmp = np.reshape(max_idxs, num_element)
     # Notice: convert index into category type
@@ -126,7 +143,26 @@ def result_process_af(video_names, start_frames, cls_scores, anchors_xmin, ancho
     max_values = np.amax(scores_action, axis=2)
     conf_tmp = np.reshape(max_values, num_element)
     out_df['conf'] = conf_tmp
-    max_idxs = np.argmax(scores_action, axis=2)
+
+    if cfg.MODEL.CLS_BRANCH == False:
+        max_idxs = np.argmax(scores_action, axis=2)
+    else:
+        num_macro_type = int(cfg.DATASET.NUM_CLASSES / cfg.DATASET.NUM_OF_TYPE)
+        num_of_type = cfg.DATASET.NUM_OF_TYPE
+        macro_type = scores_action[:,:,:num_macro_type]
+        max_idxs_macro_type = np.argmax(macro_type, axis=2)
+        micro_type = scores_action[:,:,num_macro_type:]
+
+        max_idxs = np.zeros((max_idxs_macro_type.shape), dtype=int)
+        for i in range(max_idxs.shape[0]):
+            for j in range(max_idxs.shape[1]):
+                macro_type_i = max_idxs_macro_type[i][j] # 0 macro first 4, +4 or 1 micro, last 4
+                if macro_type_i == 0:
+                    micro_type_i = np.argmax(micro_type[i][j][:num_of_type]) + num_of_type
+                elif macro_type_i == 1:
+                    micro_type_i = np.argmax(micro_type[i][j][num_of_type:])
+                max_idxs[i][j] = micro_type_i
+
     max_idxs = max_idxs + 1
     cate_idx_tmp = np.reshape(max_idxs, num_element)
     # Notice: convert index into category type

@@ -313,22 +313,45 @@ class PredHead(nn.Module):
             self.head_branches.append(PredHeadBranch(cfg))
         num_class = cfg.DATASET.NUM_CLASSES  # 2
         num_box = len(cfg.MODEL.ASPECT_RATIOS)  # 5
+        NUM_OF_TYPE = cfg.DATASET.NUM_OF_TYPE
 
         # [batch_size, 256, (16,8,4,2)] -> [batch_size, _, (16,8,4,2)]
-        af_cls = nn.Conv1d(cfg.MODEL.HEAD_DIM, num_class, kernel_size=3, padding=1)
+        if cfg.MODEL.CLS_BRANCH == False:
+            af_cls = nn.Conv1d(cfg.MODEL.HEAD_DIM, num_class, kernel_size=3, padding=1)
+            ab_cls = nn.Conv1d(cfg.MODEL.HEAD_DIM, num_box * num_class, kernel_size=3, padding=1)
+        else:
+            af_cls = nn.Conv1d(cfg.MODEL.HEAD_DIM, int(num_class/NUM_OF_TYPE), kernel_size=3, padding=1)
+            ab_cls = nn.Conv1d(cfg.MODEL.HEAD_DIM, num_box * int(num_class/NUM_OF_TYPE), kernel_size=3, padding=1)
+
         af_reg = nn.Conv1d(cfg.MODEL.HEAD_DIM, 2, kernel_size=3, padding=1)
-        ab_cls = nn.Conv1d(cfg.MODEL.HEAD_DIM, num_box * num_class, kernel_size=3, padding=1)
         ab_reg = nn.Conv1d(cfg.MODEL.HEAD_DIM, num_box * 2, kernel_size=3, padding=1)
         self.pred_heads = nn.ModuleList([af_cls, af_reg, ab_cls, ab_reg])
+        if cfg.MODEL.CLS_BRANCH == True:
+            self.head_branches.append(PredHeadBranch(cfg))
+            self.head_branches.append(PredHeadBranch(cfg))
+            af_cls2 = nn.Conv1d(cfg.MODEL.HEAD_DIM*2, num_class, kernel_size=3, padding=1)
+            ab_cls2 = nn.Conv1d(cfg.MODEL.HEAD_DIM*2, num_box * num_class, kernel_size=3, padding=1)
+            self.pred_heads.append(af_cls2)
+            self.pred_heads.append(ab_cls2)
+        #self.is_cls_branch = cfg.MODEL.CLS_BRANCH
+        assert len(self.head_branches) == len(self.pred_heads)
 
     def forward(self, x):
         preds = []
+        feats = []
         if x.size(-1) in self.inhibition:
             lgf_out = self.lgf(x)
         else:
             lgf_out = x
-        for pred_branch, pred_head in zip(self.head_branches, self.pred_heads):
+        for i in range(len(self.head_branches)):
+            pred_branch = self.head_branches[i]
+            pred_head = self.pred_heads[i]
             feat = pred_branch(lgf_out)
+            feats.append(feat)
+            if i == 4:
+                feat = torch.cat((feat, feats[0]), dim=1)
+            if i == 5:
+                feat = torch.cat((feat, feats[2]), dim=1)
             preds.append(pred_head(feat))
 
         return tuple(preds)
@@ -345,7 +368,12 @@ class LocNet(nn.Module):
         self.reduce_channels = ReduceChannel(cfg)
         self.pred = PredHead(cfg)
         self.num_class = cfg.DATASET.NUM_CLASSES
+        self.is_cls_branch = cfg.MODEL.CLS_BRANCH
         self.ab_pred_value = cfg.DATASET.NUM_CLASSES + 2
+        self.NUM_OF_TYPE = cfg.DATASET.NUM_OF_TYPE
+        if self.is_cls_branch:
+            self.ab_pred_value += int(self.num_class / self.NUM_OF_TYPE)
+
 
     def _layer_cal(self, feat_list):
         af_cls = list()
@@ -353,16 +381,26 @@ class LocNet(nn.Module):
         ab_pred = list()
 
         for feat in feat_list:
-            cls_af, reg_af, cls_ab, reg_ab = self.pred(feat)
-            af_cls.append(cls_af.permute(0, 2, 1).contiguous())
+            if self.is_cls_branch == False:
+                cls_af, reg_af, cls_ab, reg_ab = self.pred(feat)
+            else:
+                cls_af, reg_af, cls_ab, reg_ab, cls_af_type, cls_ab_type = self.pred(feat)
+            if self.is_cls_branch == False:
+                af_cls.append(cls_af.permute(0, 2, 1).contiguous())
+                ab_pred.append(self.tensor_view(cls_ab, reg_ab))
+            else:
+                t1 = cls_af.permute(0, 2, 1).contiguous()
+                t2 = cls_af_type.permute(0, 2, 1).contiguous()
+                af_cls.append(torch.cat((t1, t2), dim=-1))
+                cls = torch.cat((cls_ab, cls_ab_type), dim=1)
+                ab_pred.append(self.tensor_view(cls, reg_ab))
             af_reg.append(reg_af.permute(0, 2, 1).contiguous())
-            ab_pred.append(self.tensor_view(cls_ab, reg_ab))
 
         af_cls = torch.cat(af_cls, dim=1)  # bs, sum(t_i), n_class+1
         af_reg = torch.cat(af_reg, dim=1)  # bs, sum(t_i), 2
         af_reg = F.relu(af_reg)
 
-        return (af_cls, af_reg), tuple(ab_pred)
+        return (af_cls, af_reg), tuple(ab_pred) # af_cls: cls_af+cls_af_type, ab_pred: cls_ab+cls_ab_type+reg_ab
 
     def tensor_view(self, cls, reg):
         '''
@@ -370,7 +408,10 @@ class LocNet(nn.Module):
         make the prediction (24 values) for each anchor box at the last dimension
         '''
         bs, c, t = cls.size()
-        cls = cls.view(bs, -1, self.num_class, t).permute(0, 3, 1, 2).contiguous()
+        if self.is_cls_branch == False:
+            cls = cls.view(bs, -1, self.num_class, t).permute(0, 3, 1, 2).contiguous()
+        else:
+            cls = cls.view(bs, -1, self.num_class+int(self.num_class/self.NUM_OF_TYPE), t).permute(0, 3, 1, 2).contiguous()
         reg = reg.view(bs, -1, 2, t).permute(0, 3, 1, 2).contiguous()
         data = torch.cat((cls, reg), dim=-1)
         data = data.view(bs, -1, self.ab_pred_value)

@@ -35,7 +35,7 @@ class Focal_loss(nn.Module):
         self.eps = eps
         self.class_weight = torch.tensor(class_weight).type_as(dtype) if class_weight is not None else None
 
-    def forward(self, x, y):
+    def forward(self, x, y): #af_cls: cls_af + cls_af_type
         t = one_hot_embedding(y, 1 + self.num_classes)
         t = t[:, 1:]
         #t = one_hot_embedding(y, self.num_classes)
@@ -68,10 +68,50 @@ def loss_function_ab(anchors_x, anchors_w, anchors_rx_ls, anchors_rw_ls, anchors
 
     # classification loss
     keep = (pmask.float() + nmask.float()) > 0
-    anchors_class = anchors_class.view(-1, cfg.DATASET.NUM_CLASSES)[keep]
+
+    if cfg.MODEL.CLS_BRANCH == False:
+        anchors_class = anchors_class.view(-1, cfg.DATASET.NUM_CLASSES)[keep]
+    else:
+        anchors_class = anchors_class.view(-1, cfg.DATASET.NUM_CLASSES+int(cfg.DATASET.NUM_CLASSES/cfg.DATASET.NUM_OF_TYPE))[keep]
+
     match_labels = match_labels.view(-1)[keep]
-    cls_loss_f = Focal_loss(num_classes=cfg.DATASET.NUM_CLASSES, class_weight=weight)
-    cls_loss = cls_loss_f(anchors_class, match_labels) / torch.sum(pmask)
+
+    if cfg.MODEL.CLS_BRANCH == False:
+        cate_loss_f = Focal_loss(num_classes=cfg.DATASET.NUM_CLASSES, class_weight=weight)
+        cls_loss = cate_loss_f(anchors_class, match_labels)
+    else:
+        major_type = int(cfg.DATASET.NUM_CLASSES/cfg.DATASET.NUM_OF_TYPE)
+        minor_type = cfg.DATASET.NUM_OF_TYPE
+        # cate_label to only 1 and 2
+        ind_micro = torch.where((match_labels<=minor_type) & (match_labels>0))
+        ind_macro = torch.where(match_labels>minor_type)
+        major_cate_label = match_labels.clone()
+        major_cate_label[ind_micro] = 2
+        major_cate_label[ind_macro] = 1
+        cate_loss_f = Focal_loss(num_classes=major_type, class_weight=weight)
+        cls_loss_exp = cate_loss_f(anchors_class[:, :major_type], major_cate_label)
+
+        # only use positive sample, todo: check weight?
+        pred_cls_minor = anchors_class[:, major_type:]
+        pos_sample = torch.where(match_labels>0)
+        cate_label_minor = match_labels[pos_sample]
+        pred_cls_minor = pred_cls_minor[pos_sample]
+        final_pred = []
+        final_label = []
+        for i in range(pred_cls_minor.size()[0]):
+            l = cate_label_minor[i]
+            if l <= minor_type: # micro, last 4
+                final_pred.append(pred_cls_minor[i][4:])
+            else: # macro, first 4
+                final_pred.append(pred_cls_minor[i][:4])
+                l -= minor_type
+            final_label.append(l)
+        final_pred = torch.stack(final_pred)
+        final_label = torch.stack(final_label)
+        cate_loss_f_type = Focal_loss(num_classes=minor_type, class_weight=weight)
+        cls_loss_type = cate_loss_f_type(final_pred, final_label)
+        cls_loss = cls_loss_exp + cls_loss_type * 10
+    cls_loss = cls_loss / torch.sum(pmask)  # avoid no positive
 
     # localization loss
     if torch.sum(pmask) > 0:
@@ -124,7 +164,10 @@ def loss_function_af(cate_label, preds_cls, target_loc, pred_loc, cfg, weight):
     batch_size = preds_cls.size(0)
     cate_label_view = cate_label.view(-1)
     cate_label_view = cate_label_view.type_as(dtypel)
-    preds_cls_view = preds_cls.view(-1, cfg.DATASET.NUM_CLASSES)
+    if cfg.MODEL.CLS_BRANCH == False:
+        preds_cls_view = preds_cls.view(-1, cfg.DATASET.NUM_CLASSES)
+    else:
+        preds_cls_view = preds_cls.view(-1, cfg.DATASET.NUM_CLASSES+int(cfg.DATASET.NUM_CLASSES/cfg.DATASET.NUM_OF_TYPE))
     pmask = (cate_label_view > 0).type_as(dtype)
 
     if torch.sum(pmask) > 0:
@@ -136,7 +179,40 @@ def loss_function_af(cate_label, preds_cls, target_loc, pred_loc, cfg, weight):
     else:
         reg_loss = torch.tensor(0.).type_as(dtype)
     # cls loss
-    cate_loss_f = Focal_loss(num_classes=cfg.DATASET.NUM_CLASSES, class_weight=weight)
-    cate_loss = cate_loss_f(preds_cls_view, cate_label_view) / (torch.sum(pmask) + batch_size)  # avoid no positive
+    if cfg.MODEL.CLS_BRANCH == False:
+        cate_loss_f = Focal_loss(num_classes=cfg.DATASET.NUM_CLASSES, class_weight=weight)
+        cls_loss = cate_loss_f(preds_cls_view, cate_label_view)
+    else:
+        major_type = int(cfg.DATASET.NUM_CLASSES/cfg.DATASET.NUM_OF_TYPE)
+        minor_type = cfg.DATASET.NUM_OF_TYPE
+        # cate_label to only 1 and 2
+        ind_micro = torch.where((cate_label_view<=minor_type) & (cate_label_view>0))
+        ind_macro = torch.where(cate_label_view>minor_type)
+        major_cate_label = cate_label_view.clone()
+        major_cate_label[ind_micro] = 2
+        major_cate_label[ind_macro] = 1
+        cate_loss_f = Focal_loss(num_classes=major_type, class_weight=weight)
+        cls_loss_exp = cate_loss_f(preds_cls_view[:, :major_type], major_cate_label)
 
+        # only use positive sample, todo: check weight?
+        pred_cls_minor = preds_cls_view[:, major_type:]
+        pos_sample = torch.where(cate_label_view>0)
+        cate_label_minor = cate_label_view[pos_sample]
+        pred_cls_minor = pred_cls_minor[pos_sample]
+        final_pred = []
+        final_label = []
+        for i in range(pred_cls_minor.size()[0]):
+            l = cate_label_minor[i]
+            if l <= minor_type: # micro, last 4
+                final_pred.append(pred_cls_minor[i][4:])
+            else: # macro, first 4
+                final_pred.append(pred_cls_minor[i][:4])
+                l -= minor_type
+            final_label.append(l)
+        final_pred = torch.stack(final_pred)
+        final_label = torch.stack(final_label)
+        cate_loss_f_type = Focal_loss(num_classes=minor_type, class_weight=weight)
+        cls_loss_type = cate_loss_f_type(final_pred, final_label)
+        cls_loss = cls_loss_exp + cls_loss_type * 10
+    cate_loss = cls_loss / (torch.sum(pmask) + batch_size)  # avoid no positive
     return cate_loss, reg_loss

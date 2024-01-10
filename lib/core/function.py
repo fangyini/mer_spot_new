@@ -91,13 +91,14 @@ def train(cfg, train_loader, model, optimizer):
     af_weight = np.sum(af_weight) / af_weight
     ab_weight = [242729, 5816, 1055]
     ab_weight = np.sum(ab_weight) / ab_weight'''
-    if cfg.DATASET.MICRO_SYSTEM == False:
+    if cfg.DATASET.MICRO_SYSTEM == False or cfg.MODEL.CLS_BRANCH == True:
         af_weight = ab_weight = None
     else:
         af_weight = [27, 73, 35, 57, 304, 288, 53, 181] # [0.001, 1, 1]
         af_weight = np.sum(af_weight) / af_weight / 20
         ab_weight = [27, 73, 35, 57, 304, 288, 53, 181] # [0.001, 1, 1]
         ab_weight = np.sum(ab_weight) / ab_weight / 20
+
     for feat_spa, feat_tem, boxes, label, action_num in train_loader:
         optimizer.zero_grad()
 
@@ -112,6 +113,7 @@ def train(cfg, train_loader, model, optimizer):
         cate_label = cate_label.type_as(dtype)
 
         out_af, out_ab = model(feature)
+        # new version: af_cls: cls_af + cls_af_type, ab_pred: cls_ab + cls_ab_type + reg_ab
 
         # Loss for anchor-free module, including classification loss & regression loss
         preds_cls, preds_reg = out_af

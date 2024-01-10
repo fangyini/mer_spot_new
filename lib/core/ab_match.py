@@ -45,7 +45,7 @@ def anchor_box_adjust(cfg, anchors, layer):
 
     anchors_x = anchors_rx * dboxes_w + dboxes_x
     anchors_w = torch.exp(anchors_rw) * dboxes_w
-    anchors_class = anchors[:, :, :cfg.DATASET.NUM_CLASSES]
+    anchors_class = anchors[:, :, :-2]
 
     return anchors_class, anchors_x, anchors_w
 
@@ -118,7 +118,7 @@ def anchor_bboxes_encode(cfg, anchors, glabels, gbboxes, g_action_nums, layer):
     # anchors_class: bs, ti*n_box, nclass. others: bs, ti*n_box
     anchors_rx = anchors[:, :, -2]
     anchors_rw = anchors[:, :, -1]
-    anchors_class = anchors[:, :, :cfg.DATASET.NUM_CLASSES]
+    anchors_class = anchors[:, :, :-2] #anchors[:, :, :cfg.DATASET.NUM_CLASSES]
     # dboxes_w, dboxes_x: ti*n_box.
     dboxes_w, dboxes_x = default_box(temporal_length, stride, cfg.MODEL.ASPECT_RATIOS)
 
