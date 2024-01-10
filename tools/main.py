@@ -62,9 +62,7 @@ def main(subject, config):
         assert cfg.BASIC.LOAD_MODEL is not None
         params_to_freeze = checkpoint['model']
         for name, param in model.named_parameters():
-            print(param.requires_grad)
             param.requires_grad = False if name in params_to_freeze else True
-            print(param.requires_grad)
 
     # optimizer
     # warm_up_with_cosine_lr
