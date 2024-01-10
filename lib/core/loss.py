@@ -94,22 +94,25 @@ def loss_function_ab(anchors_x, anchors_w, anchors_rx_ls, anchors_rw_ls, anchors
         # only use positive sample, todo: check weight?
         pred_cls_minor = anchors_class[:, major_type:]
         pos_sample = torch.where(match_labels>0)
-        cate_label_minor = match_labels[pos_sample]
-        pred_cls_minor = pred_cls_minor[pos_sample]
-        final_pred = []
-        final_label = []
-        for i in range(pred_cls_minor.size()[0]):
-            l = cate_label_minor[i]
-            if l <= minor_type: # micro, last 4
-                final_pred.append(pred_cls_minor[i][4:])
-            else: # macro, first 4
-                final_pred.append(pred_cls_minor[i][:4])
-                l -= minor_type
-            final_label.append(l)
-        final_pred = torch.stack(final_pred)
-        final_label = torch.stack(final_label)
-        cate_loss_f_type = Focal_loss(num_classes=minor_type, class_weight=weight)
-        cls_loss_type = cate_loss_f_type(final_pred, final_label)
+        if pos_sample[0].size()[0] == 0:
+            cls_loss_type = 0
+        else:
+            cate_label_minor = match_labels[pos_sample]
+            pred_cls_minor = pred_cls_minor[pos_sample]
+            final_pred = []
+            final_label = []
+            for i in range(pred_cls_minor.size()[0]):
+                l = cate_label_minor[i]
+                if l <= minor_type: # micro, last 4
+                    final_pred.append(pred_cls_minor[i][minor_type:])
+                else: # macro, first 4
+                    final_pred.append(pred_cls_minor[i][:minor_type])
+                    l -= minor_type
+                final_label.append(l)
+            final_pred = torch.stack(final_pred)
+            final_label = torch.stack(final_label)
+            cate_loss_f_type = Focal_loss(num_classes=minor_type, class_weight=weight)
+            cls_loss_type = cate_loss_f_type(final_pred, final_label)
         cls_loss = cls_loss_exp + cls_loss_type * 10
     cls_loss = cls_loss / torch.sum(pmask)  # avoid no positive
 
@@ -197,22 +200,25 @@ def loss_function_af(cate_label, preds_cls, target_loc, pred_loc, cfg, weight):
         # only use positive sample, todo: check weight?
         pred_cls_minor = preds_cls_view[:, major_type:]
         pos_sample = torch.where(cate_label_view>0)
-        cate_label_minor = cate_label_view[pos_sample]
-        pred_cls_minor = pred_cls_minor[pos_sample]
-        final_pred = []
-        final_label = []
-        for i in range(pred_cls_minor.size()[0]):
-            l = cate_label_minor[i]
-            if l <= minor_type: # micro, last 4
-                final_pred.append(pred_cls_minor[i][4:])
-            else: # macro, first 4
-                final_pred.append(pred_cls_minor[i][:4])
-                l -= minor_type
-            final_label.append(l)
-        final_pred = torch.stack(final_pred)
-        final_label = torch.stack(final_label)
-        cate_loss_f_type = Focal_loss(num_classes=minor_type, class_weight=weight)
-        cls_loss_type = cate_loss_f_type(final_pred, final_label)
+        if pos_sample[0].size()[0] == 0:
+            cls_loss_type = 0
+        else:
+            cate_label_minor = cate_label_view[pos_sample]
+            pred_cls_minor = pred_cls_minor[pos_sample]
+            final_pred = []
+            final_label = []
+            for i in range(pred_cls_minor.size()[0]):
+                l = cate_label_minor[i]
+                if l <= minor_type: # micro, last 4
+                    final_pred.append(pred_cls_minor[i][minor_type:])
+                else: # macro, first 4
+                    final_pred.append(pred_cls_minor[i][:minor_type])
+                    l -= minor_type
+                final_label.append(l)
+            final_pred = torch.stack(final_pred)
+            final_label = torch.stack(final_label)
+            cate_loss_f_type = Focal_loss(num_classes=minor_type, class_weight=weight)
+            cls_loss_type = cate_loss_f_type(final_pred, final_label)
         cls_loss = cls_loss_exp + cls_loss_type * 10
     cate_loss = cls_loss / (torch.sum(pmask) + batch_size)  # avoid no positive
     return cate_loss, reg_loss
