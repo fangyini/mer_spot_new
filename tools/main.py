@@ -53,13 +53,13 @@ def main(subject, config):
     model.apply(weight_init)
     model.to(DEVICE)
 
-    if cfg.BASIC.LOAD_MODEL is not None:
+    if cfg.BASIC.LOAD_MODEL != 'None':
         PATH = cfg.BASIC.LOAD_MODEL + '/' + subject + '/' + 'model_' + str(cfg.BASIC.MODEL_NUM) + '.pth'
         checkpoint = torch.load(PATH, map_location=torch.device(DEVICE))
         model.load_state_dict(checkpoint['model'], strict=False)
 
     if cfg.BASIC.FREEZE == True:
-        assert cfg.BASIC.LOAD_MODEL is not None
+        assert cfg.BASIC.LOAD_MODEL != 'None'
         params_to_freeze = checkpoint['model']
         for name, param in model.named_parameters():
             param.requires_grad = False if name in params_to_freeze else True
