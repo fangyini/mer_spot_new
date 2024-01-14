@@ -72,15 +72,20 @@ def result_process_ab(video_names, video_len, start_frames, anchors_class, ancho
     # record confidence score and category index
     scores_action = anchors_class
 
-    max_values = np.amax(scores_action, axis=2)
-    conf_tmp = np.reshape(max_values, num_element)
-    out_df['conf'] = conf_tmp
     if cfg.MODEL.CLS_BRANCH == False:
+        max_values = np.amax(scores_action, axis=2)
+        conf_tmp = np.reshape(max_values, num_element)
+        out_df['conf'] = conf_tmp
         max_idxs = np.argmax(scores_action, axis=2)
     else:
         num_macro_type = int(cfg.DATASET.NUM_CLASSES / cfg.DATASET.NUM_OF_TYPE)
         num_of_type = cfg.DATASET.NUM_OF_TYPE
         macro_type = scores_action[:,:,:num_macro_type]
+
+        max_values = np.amax(macro_type, axis=2)
+        conf_tmp = np.reshape(max_values, num_element)
+        out_df['conf'] = conf_tmp
+
         max_idxs_macro_type = np.argmax(macro_type, axis=2)
         micro_type = scores_action[:,:,num_macro_type:]
 
@@ -140,16 +145,21 @@ def result_process_af(video_names, start_frames, cls_scores, anchors_xmin, ancho
 
     # scores_action = cls_scores[:, :, 1:]
     scores_action = cls_scores
-    max_values = np.amax(scores_action, axis=2)
-    conf_tmp = np.reshape(max_values, num_element)
-    out_df['conf'] = conf_tmp
 
     if cfg.MODEL.CLS_BRANCH == False:
+        max_values = np.amax(scores_action, axis=2)
+        conf_tmp = np.reshape(max_values, num_element)
+        out_df['conf'] = conf_tmp
         max_idxs = np.argmax(scores_action, axis=2)
     else:
         num_macro_type = int(cfg.DATASET.NUM_CLASSES / cfg.DATASET.NUM_OF_TYPE)
         num_of_type = cfg.DATASET.NUM_OF_TYPE
         macro_type = scores_action[:,:,:num_macro_type]
+
+        max_values = np.amax(macro_type, axis=2)
+        conf_tmp = np.reshape(max_values, num_element)
+        out_df['conf'] = conf_tmp
+
         max_idxs_macro_type = np.argmax(macro_type, axis=2)
         micro_type = scores_action[:,:,num_macro_type:]
 
