@@ -46,6 +46,7 @@ def final_result_process(out_df, epoch,subject, cfg, flag):
         raise ValueError('flag should in {0, 1, 2}')
 
     video_name_list = list(set(df_name.video_name.values[:]))
+    video_name_list.sort()
 
     for video_name in video_name_list:
         if flag == 0:

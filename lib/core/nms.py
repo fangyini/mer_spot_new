@@ -11,6 +11,14 @@ def temporal_nms(df, cfg):
     '''
 
     type_set = list(set(df.cate_idx.values[:]))
+    if cfg.DATASET.NUM_CLASSES > 2:
+        type_set_new = [[], []]
+        for i in type_set:
+            if i <= cfg.DATASET.NUM_OF_TYPE:
+                type_set_new[0].append(i)
+            else:
+                type_set_new[1].append(i)
+        type_set = type_set_new
     # type_set.sort()
 
     # returned values
@@ -19,10 +27,24 @@ def temporal_nms(df, cfg):
     rscore = list()
     rlabel = list()
 
+
     # attention: for THUMOS, a sliding window may contain actions from different class
     for t in type_set:
-        label = t
-        tmp_df = df[df.cate_idx == t]
+        if cfg.DATASET.NUM_CLASSES <= 2:
+            label = t
+            tmp_df = df[df.cate_idx == t]
+        else:
+            if len(t) == 0:
+                continue
+            out_df = pd.DataFrame()
+            for i in t:
+                tmp_df = df[df.cate_idx == i]
+                out_df = pd.concat([out_df, tmp_df])
+            tmp_df = out_df
+            label = np.array(tmp_df.cate_idx.values[:])
+
+        tmp_df = tmp_df.sort_values(by='xmax', ascending=False)
+        tmp_df = tmp_df.sort_values(by='xmin', ascending=False)
 
         start_time = np.array(tmp_df.xmin.values[:])
         end_time = np.array(tmp_df.xmax.values[:])
@@ -46,7 +68,10 @@ def temporal_nms(df, cfg):
 
         # record the result
         for idx in keep:
-            rlabel.append(label)
+            if cfg.DATASET.NUM_CLASSES > 2:
+                rlabel.append(label[idx])
+            else:
+                rlabel.append(label)
             rstart.append(float(start_time[idx]))
             rend.append(float(end_time[idx]))
             rscore.append(scores[idx])

@@ -383,17 +383,14 @@ class LocNet(nn.Module):
         for feat in feat_list:
             if self.is_cls_branch == False:
                 cls_af, reg_af, cls_ab, reg_ab = self.pred(feat)
-            else:
-                cls_af, reg_af, cls_ab, reg_ab, cls_af_type, cls_ab_type = self.pred(feat)
-            if self.is_cls_branch == False:
                 af_cls.append(cls_af.permute(0, 2, 1).contiguous())
                 ab_pred.append(self.tensor_view(cls_ab, reg_ab))
             else:
+                cls_af, reg_af, cls_ab, reg_ab, cls_af_type, cls_ab_type = self.pred(feat)
                 t1 = cls_af.permute(0, 2, 1).contiguous()
                 t2 = cls_af_type.permute(0, 2, 1).contiguous()
                 af_cls.append(torch.cat((t1, t2), dim=-1))
-                cls = torch.cat((cls_ab, cls_ab_type), dim=1)
-                ab_pred.append(self.tensor_view(cls, reg_ab))
+                ab_pred.append(self.tensor_view_cls_branch(cls_ab, cls_ab_type, reg_ab))
             af_reg.append(reg_af.permute(0, 2, 1).contiguous())
 
         af_cls = torch.cat(af_cls, dim=1)  # bs, sum(t_i), n_class+1
@@ -412,6 +409,20 @@ class LocNet(nn.Module):
             cls = cls.view(bs, -1, self.num_class, t).permute(0, 3, 1, 2).contiguous()
         else:
             cls = cls.view(bs, -1, self.num_class+int(self.num_class/self.NUM_OF_TYPE), t).permute(0, 3, 1, 2).contiguous()
+        reg = reg.view(bs, -1, 2, t).permute(0, 3, 1, 2).contiguous()
+        data = torch.cat((cls, reg), dim=-1)
+        data = data.view(bs, -1, self.ab_pred_value)
+        return data
+
+    def tensor_view_cls_branch(self, cls, cls_type, reg):
+        '''
+        view the tensor for [batch, 120, depth] to [batch, (depth*5), 24]
+        make the prediction (24 values) for each anchor box at the last dimension
+        '''
+        bs, c, t = cls.size()
+        cls = cls.view(bs, -1, int(self.num_class / self.NUM_OF_TYPE), t).permute(0, 3, 1, 2).contiguous()
+        cls_type = cls_type.view(bs, -1, self.num_class, t).permute(0, 3, 1, 2).contiguous()
+        cls = torch.cat((cls, cls_type), dim=-1)
         reg = reg.view(bs, -1, 2, t).permute(0, 3, 1, 2).contiguous()
         data = torch.cat((cls, reg), dim=-1)
         data = data.view(bs, -1, self.ab_pred_value)
