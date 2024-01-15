@@ -227,6 +227,8 @@ def main_threshold(path, dataset, annotation, version, label_frequency, start_th
 
     txts = [int(i.split('_')[-1].split('.')[0]) for i in txts]
     txts.sort()
+    #best, best_m1, best_m2 = 0, 0, 0
+    #best_recall = 0
 
     if dataset =='cas(me)^2':
         out_path_tmp = os.path.join(os.path.dirname(annotation), 'threshold', 'cathreshold'+'_'+str(version))
@@ -385,15 +387,24 @@ def main_threshold(path, dataset, annotation, version, label_frequency, start_th
                 #print('best', recall_all)
             # Sometimes, there are no predictions of micro-expressions or macro-expressions
             F1_SCORE_M1, F1_SCORE_M2,F1_SCORE,precision_all = all_score(TP1,TP2,N1,N2,recall1,recall2,recall_all)
-            if F1_SCORE_M1 > best_m1:
+            '''if F1_SCORE_M1 > best_m1:
                 best_m1 = F1_SCORE_M1
                 #print("f1_score_macro: %05f, f1_score_micro: %05f"%(best_m1, best_m2), "\n")
             if F1_SCORE_M2 > best_m2:
                 best_m2 = F1_SCORE_M2
-                #print("f1_score_macro: %05f, f1_score_micro: %05f"%(best_m1, best_m2), "\n")
+                #print("f1_score_macro: %05f, f1_score_micro: %05f"%(best_m1, best_m2), "\n")'''
             # record best the F1_scroe and the result of predictions
             if F1_SCORE > best:
                 best = F1_SCORE
+
+                # calculate only for this epoch
+                best_m1 = F1_SCORE_M1
+                best_m2 = F1_SCORE_M2
+                best_tp1 = TP1
+                best_tp2 = TP2
+                best_n1 = N1
+                best_n2 = N2
+
                 # print('number of epoch: %d, threshold: %5f'%(e, k))
                 #print("recall: %05f, precision: %05f, f1_score: %05f"%(recall_all, precision_all, best))
                 with open(best_out, 'w') as f_sout:
@@ -411,7 +422,7 @@ def main_threshold(path, dataset, annotation, version, label_frequency, start_th
             # print(TP, TP1, TP2, N1, N2,k_temp/1000)
         print("epoch: ", e)
         print("f1_score_macro: %05f, f1_score_micro: %05f" % (best_m1, best_m2), "\n")
-        print(TP1, TP2, N1, N2)
+        print(best_tp1, best_tp2, best_n1, best_n2)
         print('*'*10)
 
 if __name__ == '__main__':
