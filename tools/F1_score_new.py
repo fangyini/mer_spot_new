@@ -228,8 +228,6 @@ def main_threshold(path, dataset, annotation, version, label_frequency, start_th
     txts = [int(i.split('_')[-1].split('.')[0]) for i in txts]
     txts.sort()
 
-    best, best_m1, best_m2 = 0, 0, 0
-    best_recall = 0
     if dataset =='cas(me)^2':
         out_path_tmp = os.path.join(os.path.dirname(annotation), 'threshold', 'cathreshold'+'_'+str(version))
     else:
@@ -241,6 +239,8 @@ def main_threshold(path, dataset, annotation, version, label_frequency, start_th
     if os.path.exists(threshold_out):
         os.remove(threshold_out)
     for e in range(20, 60):
+        best, best_m1, best_m2 = 0, 0, 0
+        best_recall = 0
         txt_index = txts[e]
         # all subjects in the same epoch
         test_path = [os.path.join(i, 'test_'+str(txt_index).zfill(2)+'.txt') for i in test_path_temp]    
@@ -382,20 +382,20 @@ def main_threshold(path, dataset, annotation, version, label_frequency, start_th
             recall_all = 1.0 *(TP1+TP2)/(M1+M2)
             if recall_all >best_recall:
                 best_recall = recall_all
-                print('best', recall_all)
+                #print('best', recall_all)
             # Sometimes, there are no predictions of micro-expressions or macro-expressions
             F1_SCORE_M1, F1_SCORE_M2,F1_SCORE,precision_all = all_score(TP1,TP2,N1,N2,recall1,recall2,recall_all)
             if F1_SCORE_M1 > best_m1:
                 best_m1 = F1_SCORE_M1
-                print("f1_score_macro: %05f, f1_score_micro: %05f"%(best_m1, best_m2), "\n")
+                #print("f1_score_macro: %05f, f1_score_micro: %05f"%(best_m1, best_m2), "\n")
             if F1_SCORE_M2 > best_m2:
                 best_m2 = F1_SCORE_M2
-                print("f1_score_macro: %05f, f1_score_micro: %05f"%(best_m1, best_m2), "\n")
+                #print("f1_score_macro: %05f, f1_score_micro: %05f"%(best_m1, best_m2), "\n")
             # record best the F1_scroe and the result of predictions
             if F1_SCORE > best:
                 best = F1_SCORE
                 # print('number of epoch: %d, threshold: %5f'%(e, k))
-                print("recall: %05f, precision: %05f, f1_score: %05f"%(recall_all, precision_all, best))
+                #print("recall: %05f, precision: %05f, f1_score: %05f"%(recall_all, precision_all, best))
                 with open(best_out, 'w') as f_sout:
                     f_sout.writelines("%s, %s, %s, %s, %s, %s\n" % (wtmp[0], wtmp[1],wtmp[2],wtmp[3],wtmp[4],wtmp[5]) for wtmp in write_list)
                 if F1_SCORE > 0.25:
@@ -407,27 +407,19 @@ def main_threshold(path, dataset, annotation, version, label_frequency, start_th
                 length_count.sort()
                 length_pre.sort()
                 # print('pre:', length_pre,'\n','act:', length_count,'\n',TP, TP1, TP2, N1, N2)
-                print(TP, TP1, TP2, N1, N2)
+                #print(TP, TP1, TP2, N1, N2)
             # print(TP, TP1, TP2, N1, N2,k_temp/1000)
-        print("epoch:  !!!!!!!!!!!!!!!!!!!!!!!!", e+1)    
+        print("epoch: ", e)
+        print("f1_score_macro: %05f, f1_score_micro: %05f" % (best_m1, best_m2), "\n")
+        print(TP1, TP2, N1, N2)
+        print('*'*10)
 
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='Test')
 
-    # parser.add_argument('--path', type=str, default='/home/yww/1_spot/MSA-Net/output_V28/cas(me)^2_no_new_range_wide_less_S0.1')
-    # parser.add_argument('--ann', type=str, default='/home/yww/1_spot/casme2_annotation.csv')
-    # parser.add_argument('--dataset', type=str, default='cas(me)^2')
-    # # parser.add_argument('--ann', type=str, default=r'/home/yww/1_spot/cas(me)^2_merge.csv')
-    # # parser.add_argument('--dataset', type=str, default=r'cas(me)^2_merge')
-    # parser.add_argument('--version', type=int, default=28)
-    # parser.add_argument('--top_k', type=bool, default=False)
-    # parser.add_argument('--label_frequency', type=float, default=1.0)
-    # parser.add_argument('--start_threshold', type=int, default=300)
-    # parser.add_argument('--most_pos_num', type=int, default=15)
-
-    parser.add_argument('--path', type=str, default='output_V28/cas(me)^2')
-    parser.add_argument('--ann', type=str, default='casme_annotation.csv')
+    parser.add_argument('--path', type=str, default='outputs/output_V28_2labels/cas(me)^2')
+    parser.add_argument('--ann', type=str, default='casme2_annotation.csv')
     parser.add_argument('--dataset', type=str, default='cas(me)^2')
     parser.add_argument('--version', type=int, default=28)
     parser.add_argument('--top_k', type=bool, default=False)
