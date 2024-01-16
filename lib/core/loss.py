@@ -120,6 +120,7 @@ def loss_function_ab(anchors_x, anchors_w, anchors_rx_ls, anchors_rw_ls, anchors
             cls_loss_type = ce_loss(final_pred, final_label)
             with torch.no_grad():
                 f1 = multiclass_f1_score(final_pred, final_label, num_classes=minor_type, average='micro')
+                f1 = f1.cpu().numpy()
                 #print('f1 score: ', f1)
         cls_loss = cls_loss_exp + cls_loss_type * 10
     cls_loss = cls_loss / torch.sum(pmask)  # avoid no positive
@@ -230,6 +231,7 @@ def loss_function_af(cate_label, preds_cls, target_loc, pred_loc, cfg, weight):
             cls_loss_type = ce_loss(final_pred, final_label)
             with torch.no_grad():
                 f1 = multiclass_f1_score(final_pred, final_label, num_classes=minor_type, average='micro')
+                f1 = f1.cpu().numpy()
                 #print('f1 score: ', f1)
             #cate_loss_f_type = Focal_loss(num_classes=minor_type, class_weight=weight)
             #cls_loss_type = cate_loss_f_type(final_pred, final_label)
