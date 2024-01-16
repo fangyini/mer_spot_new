@@ -4,8 +4,25 @@ import pandas as pd
 import numpy as np
 import argparse
 import math
+from sklearn.metrics import f1_score, recall_score, precision_score
 
-from torch.nn.functional import threshold
+def calculate_accuracy_and_f1(gt_minor_type, predicted_minor_type):
+    macro_filter = np.where((gt_minor_type >= 4) & (gt_minor_type <= 6))
+    macro_gt = gt_minor_type[macro_filter]
+    macro_predict = predicted_minor_type[macro_filter]
+    #f11 = f1_score(macro_gt, macro_predict, average='micro')
+    a = recall_score(macro_gt, macro_predict, average='macro')
+    b = precision_score(macro_gt, macro_predict, average='macro')
+    f11 = (2*a*b)/(a+b)
+
+    micro_filter = np.where((gt_minor_type >= 1) & (gt_minor_type <= 3))
+    micro_gt = gt_minor_type[micro_filter]
+    micro_predict = predicted_minor_type[micro_filter]
+    #f12 = f1_score(micro_gt, micro_predict, average='micro')
+    a = recall_score(micro_gt, micro_predict, average='macro')
+    b = precision_score(micro_gt, micro_predict, average='macro')
+    f12 = (2 * a * b) / (a + b)
+    return f11, f12
 
 
 def max_iou(ann_csv, part_pre, TP1, TP2, write_list):
@@ -234,8 +251,8 @@ def main_threshold(path, dataset, annotation, version, label_frequency, start_th
     txts = [int(i.split('_')[-1].split('.')[0]) for i in txts]
     txts.sort()
 
-    best, best_m1, best_m2 = 0, 0, 0
-    best_recall = 0
+    #best, best_m1, best_m2 = 0, 0, 0
+    #best_recall = 0
     if dataset == 'cas(me)^2':
         out_path_tmp = os.path.join(os.path.dirname(annotation), 'threshold', 'cathreshold' + '_' + str(version))
     else:
@@ -246,7 +263,9 @@ def main_threshold(path, dataset, annotation, version, label_frequency, start_th
     threshold_out = os.path.join(out_path_tmp, 'threshlod.log')
     if os.path.exists(threshold_out):
         os.remove(threshold_out)
-    for e in range(25, 60):
+    for e in range(0, 60):
+        best, best_m1, best_m2 = 0, 0, 0
+        best_recall = 0
         txt_index = txts[e]
         # all subjects in the same epoch
         test_path = [os.path.join(i, 'test_' + str(txt_index).zfill(2) + '.txt') for i in test_path_temp]
@@ -259,6 +278,8 @@ def main_threshold(path, dataset, annotation, version, label_frequency, start_th
             length_count = list()
             write_list = list()
             length_pre = list()
+            predicted_minor_type = []
+            gt_minor_type = []
             # every subject in one file (200x)
             for i in test_path:
                 with open(i, 'r') as f:
@@ -331,6 +352,10 @@ def main_threshold(path, dataset, annotation, version, label_frequency, start_th
                     act_end_video = np.array(act_end_video)[indexes]
                     labels = video_ann_df['type_idx'].values[:]
                     labels = np.array(labels)[indexes]
+                    # minor type label
+                    labels_minor = video_ann_df['type_idx_minor'].values[:]
+                    labels_minor = np.array(labels_minor)[indexes]
+
                     # actual start frames are sorted by time series
                     act_start_video.sort()
 
@@ -348,7 +373,17 @@ def main_threshold(path, dataset, annotation, version, label_frequency, start_th
                                     np.maximum(pre_end, act_end) - np.minimum(pre_start, act_start))
                         max_iou = np.max(iou)
                         max_index = np.argmax(iou)
-                        if max_iou >= 0.5 and labels[m] == int(float(pre[max_index][-2])):
+                        if max_iou >= 0.5:
+                            minor_t = int(float(pre[max_index][-2]))
+                            if minor_t > 3:
+                                major_t = 1
+                            elif minor_t <= 3:
+                                major_t = 2
+                        if max_iou >= 0.5 and labels[m] == major_t:
+                            # record predicted minor type
+                            predicted_minor_type.append(minor_t)
+                            gt_minor_type.append(labels_minor[m])
+
                             tmp_write_list = [video_label, pre_start[max_index], pre_end[max_index], act_start, act_end,
                                               'TP']
                             write_list.append(tmp_write_list)
@@ -386,6 +421,8 @@ def main_threshold(path, dataset, annotation, version, label_frequency, start_th
             # M_all need to calculate in SAMM
             # M1： Number of macro-expressions
             # M2： Number of micro-expressions
+            gt_minor_type = np.stack(gt_minor_type)
+            predicted_minor_type = np.stack(predicted_minor_type)
             if dataset == 'cas(me)^2' or dataset == 'cas(me)^2_merge':
                 M1 = 282
                 M2 = 84
@@ -397,39 +434,49 @@ def main_threshold(path, dataset, annotation, version, label_frequency, start_th
             recall_all = 1.0 * (TP1 + TP2) / (M1 + M2)
             if recall_all > best_recall:
                 best_recall = recall_all
-                print('best', recall_all)
+                # print('best', recall_all)
             # Sometimes, there are no predictions of micro-expressions or macro-expressions
-            F1_SCORE_M1, F1_SCORE_M2, F1_SCORE, precision_all = all_score(TP1, TP2, N1, N2, recall1, recall2,
-                                                                          recall_all)
+            F1_SCORE_M1, F1_SCORE_M2, F1_SCORE, precision_all = all_score(TP1, TP2, N1, N2, recall1,
+                                                                          recall2, recall_all)
             if F1_SCORE_M1 > best_m1:
                 best_m1 = F1_SCORE_M1
-                print("f1_score_macro: %05f, f1_score_micro: %05f" % (best_m1, best_m2), "\n")
+                best_tp1 = TP1
+                best_n1 = N1
+                best_f11, _ = calculate_accuracy_and_f1(gt_minor_type, predicted_minor_type)
+                #print('macro f1: ', best_f11, ', tp:', TP1, ', total:', N1)
             if F1_SCORE_M2 > best_m2:
                 best_m2 = F1_SCORE_M2
-                print("f1_score_macro: %05f, f1_score_micro: %05f" % (best_m1, best_m2), "\n")
+                best_tp2 = TP2
+                best_n2 = N2
+                _, best_f12 = calculate_accuracy_and_f1(gt_minor_type, predicted_minor_type)
+                #print('micro f1: ', best_f12, ', tp:', TP2, ', total:', N2)
             # record best the F1_scroe and the result of predictions
             if F1_SCORE > best:
                 best = F1_SCORE
                 # print('number of epoch: %d, threshold: %5f'%(e, k))
-                print("recall: %05f, precision: %05f, f1_score: %05f" % (recall_all, precision_all, best))
+                # print("recall: %05f, precision: %05f, f1_score: %05f"%(recall_all, precision_all, best))
                 with open(best_out, 'w') as f_sout:
                     f_sout.writelines(
-                        "%s, %s, %s, %s, %s, %s\n" % (wtmp[0], wtmp[1], wtmp[2], wtmp[3], wtmp[4], wtmp[5]) for wtmp in
-                        write_list)
+                        "%s, %s, %s, %s, %s, %s\n" % (wtmp[0], wtmp[1], wtmp[2], wtmp[3], wtmp[4], wtmp[5])
+                        for wtmp in write_list)
                 if F1_SCORE > 0.25:
                     standard_out = os.path.join(out_path_tmp, str(e) + '_' + str(k) + '_' + 'sample.log')
                     with open(standard_out, 'w') as f_sout:
-                        f_sout.writelines(
-                            "%s, %s, %s, %s, %s, %s\n" % (wtmp[0], wtmp[1], wtmp[2], wtmp[3], wtmp[4], wtmp[5]) for wtmp
-                            in write_list)
+                        f_sout.writelines("%s, %s, %s, %s, %s, %s\n" % (
+                        wtmp[0], wtmp[1], wtmp[2], wtmp[3], wtmp[4], wtmp[5]) for wtmp in write_list)
                     with open(threshold_out, 'a') as f_threshold:
                         f_threshold.writelines("%d, %f, %d, %d, %d, %f\n" % (e, k, TP, FP, FN, F1_SCORE))
                 length_count.sort()
                 length_pre.sort()
                 # print('pre:', length_pre,'\n','act:', length_count,'\n',TP, TP1, TP2, N1, N2)
-                print(TP, TP1, TP2, N1, N2)
+                # print(TP, TP1, TP2, N1, N2)
             # print(TP, TP1, TP2, N1, N2,k_temp/1000)
-        print("epoch:  !!!!!!!!!!!!!!!!!!!!!!!!", e + 1)
+        print("epoch: ", e)
+        print("f1_score_macro: %05f, f1_score_micro: %05f, f1_score: %05f" % (best_m1, best_m2, best), "\n")
+        print(best_tp1, best_tp2, best_n1, best_n2)
+        print('macro F1: %05f, micro F1: %05f')
+        print(best_f11, best_f12)
+        print('*' * 10)
 
 
 if __name__ == '__main__':
@@ -437,7 +484,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Test')
 
     parser.add_argument('--path', type=str, default='outputs/output_V28_downstream_freeze/cas(me)^2')
-    parser.add_argument('--ann', type=str, default='casme2_annotation.csv')
+    parser.add_argument('--ann', type=str, default='casme2_annotation_minor_type.csv')
+    #parser.add_argument('--ann_minor', type=str, default='casme2_annotation_minor_type.csv')
     parser.add_argument('--dataset', type=str, default='cas(me)^2')
     parser.add_argument('--version', type=int, default=28)
     parser.add_argument('--top_k', type=bool, default=False)
