@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
+from torcheval.metrics.functional import multiclass_f1_score
 
 dtype = torch.cuda.FloatTensor() if torch.cuda.is_available() else torch.FloatTensor()
 dtypel = torch.cuda.LongTensor() if torch.cuda.is_available() else torch.LongTensor()
@@ -96,6 +96,7 @@ def loss_function_ab(anchors_x, anchors_w, anchors_rx_ls, anchors_rw_ls, anchors
         pos_sample = torch.where(match_labels>0)
         if pos_sample[0].size()[0] == 0:
             cls_loss_type = 0
+            f1=torch.nan
         else:
             cate_label_minor = match_labels[pos_sample]
             pred_cls_minor = pred_cls_minor[pos_sample]
@@ -109,10 +110,17 @@ def loss_function_ab(anchors_x, anchors_w, anchors_rx_ls, anchors_rw_ls, anchors
                     final_pred.append(pred_cls_minor[i][:minor_type])
                     l -= minor_type
                 final_label.append(l)
-            final_pred = torch.stack(final_pred)
+            '''final_pred = torch.stack(final_pred)
             final_label = torch.stack(final_label)
             cate_loss_f_type = Focal_loss(num_classes=minor_type, class_weight=weight)
-            cls_loss_type = cate_loss_f_type(final_pred, final_label)
+            cls_loss_type = cate_loss_f_type(final_pred, final_label)'''
+            final_pred = torch.stack(final_pred)  # 0, 1, 2
+            final_label = torch.stack(final_label) - 1  # 1, 2, 3 - 1 = 0, 1, 2
+            ce_loss = nn.CrossEntropyLoss()
+            cls_loss_type = ce_loss(final_pred, final_label)
+            with torch.no_grad():
+                f1 = multiclass_f1_score(final_pred, final_label, num_classes=minor_type, average='micro')
+                #print('f1 score: ', f1)
         cls_loss = cls_loss_exp + cls_loss_type * 10
     cls_loss = cls_loss / torch.sum(pmask)  # avoid no positive
 
@@ -129,7 +137,7 @@ def loss_function_ab(anchors_x, anchors_w, anchors_rx_ls, anchors_rw_ls, anchors
         loc_loss = torch.tensor(0.).type_as(cls_loss)
     # print('loss:', cls_loss.item(), loc_loss.item(), overlap_loss.item())
 
-    return cls_loss, loc_loss
+    return cls_loss, loc_loss, f1
 
 
 def sel_fore_reg(cls_label_view, target_regs, pred_regs):
@@ -191,7 +199,7 @@ def loss_function_af(cate_label, preds_cls, target_loc, pred_loc, cfg, weight):
         # cate_label to only 1 and 2
         ind_micro = torch.where((cate_label_view<=minor_type) & (cate_label_view>0))
         ind_macro = torch.where(cate_label_view>minor_type)
-        major_cate_label = cate_label_view.clone()
+        major_cate_label = cate_label_view.clone() # todo:no gradient??
         major_cate_label[ind_micro] = 2
         major_cate_label[ind_macro] = 1
         cate_loss_f = Focal_loss(num_classes=major_type, class_weight=weight)
@@ -202,6 +210,7 @@ def loss_function_af(cate_label, preds_cls, target_loc, pred_loc, cfg, weight):
         pos_sample = torch.where(cate_label_view>0)
         if pos_sample[0].size()[0] == 0:
             cls_loss_type = 0
+            f1 = torch.nan
         else:
             cate_label_minor = cate_label_view[pos_sample]
             pred_cls_minor = pred_cls_minor[pos_sample]
@@ -215,10 +224,15 @@ def loss_function_af(cate_label, preds_cls, target_loc, pred_loc, cfg, weight):
                     final_pred.append(pred_cls_minor[i][:minor_type])
                     l -= minor_type
                 final_label.append(l)
-            final_pred = torch.stack(final_pred)
-            final_label = torch.stack(final_label)
-            cate_loss_f_type = Focal_loss(num_classes=minor_type, class_weight=weight)
-            cls_loss_type = cate_loss_f_type(final_pred, final_label)
+            final_pred = torch.stack(final_pred) # 0, 1, 2
+            final_label = torch.stack(final_label) - 1 # 1, 2, 3 - 1 = 0, 1, 2
+            ce_loss = nn.CrossEntropyLoss()
+            cls_loss_type = ce_loss(final_pred, final_label)
+            with torch.no_grad():
+                f1 = multiclass_f1_score(final_pred, final_label, num_classes=minor_type, average='micro')
+                #print('f1 score: ', f1)
+            #cate_loss_f_type = Focal_loss(num_classes=minor_type, class_weight=weight)
+            #cls_loss_type = cate_loss_f_type(final_pred, final_label)
         cls_loss = cls_loss_exp + cls_loss_type * 10
     cate_loss = cls_loss / (torch.sum(pmask) + batch_size)  # avoid no positive
-    return cate_loss, reg_loss
+    return cate_loss, reg_loss, f1

@@ -93,9 +93,10 @@ def main(subject, config):
     final_result_process(out_df_list, 0, subject, cfg, flag=0)'''
 
     for epoch in range(cfg.TRAIN.END_EPOCH):
-        loss_train, cls_loss_af, reg_loss_af, cls_loss_ab, reg_loss_ab = train(cfg, train_loader, model, optimizer)
+        loss_train, cls_loss_af, reg_loss_af, cls_loss_ab, reg_loss_ab, f1_ab, f1_af = train(cfg, train_loader, model, optimizer)
         print('Epoch %d: loss: %.4f AF cls loss: %.4f, reg loss: %.4f AB cls loss: %.4f, reg loss: %.4f' % (
             epoch, loss_train, cls_loss_af, reg_loss_af, cls_loss_ab, reg_loss_ab))
+        print('F1 ab: ', f1_ab, ', af: ', f1_af)
         
         with open(log_path, 'a') as f:
             f.write('Epoch %d: loss: %.4f AF cls loss: %.4f, reg loss: %.4f AB cls loss: %.4f, reg loss: %.4f\n' % (
