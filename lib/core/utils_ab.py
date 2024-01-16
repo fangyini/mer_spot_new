@@ -3,6 +3,10 @@ import torch.nn as nn
 import pandas as pd
 import numpy as np
 import torch.nn.init as init
+import numpy as np
+
+def sigmoid(z):
+    return 1/(1 + np.exp(-z))
 
 dtype = torch.cuda.FloatTensor() if torch.cuda.is_available() else torch.FloatTensor()
 
@@ -73,6 +77,7 @@ def result_process_ab(video_names, video_len, start_frames, anchors_class, ancho
     scores_action = anchors_class
 
     if cfg.MODEL.CLS_BRANCH == False:
+        scores_action = sigmoid(scores_action)
         max_values = np.amax(scores_action, axis=2)
         conf_tmp = np.reshape(max_values, num_element)
         out_df['conf'] = conf_tmp
@@ -81,6 +86,7 @@ def result_process_ab(video_names, video_len, start_frames, anchors_class, ancho
         num_macro_type = int(cfg.DATASET.NUM_CLASSES / cfg.DATASET.NUM_OF_TYPE)
         num_of_type = cfg.DATASET.NUM_OF_TYPE
         macro_type = scores_action[:,:,:num_macro_type]
+        macro_type = sigmoid(macro_type)
 
         max_values = np.amax(macro_type, axis=2)
         conf_tmp = np.reshape(max_values, num_element)
@@ -147,6 +153,7 @@ def result_process_af(video_names, start_frames, cls_scores, anchors_xmin, ancho
     scores_action = cls_scores
 
     if cfg.MODEL.CLS_BRANCH == False:
+        scores_action = sigmoid(scores_action)
         max_values = np.amax(scores_action, axis=2)
         conf_tmp = np.reshape(max_values, num_element)
         out_df['conf'] = conf_tmp
@@ -155,6 +162,7 @@ def result_process_af(video_names, start_frames, cls_scores, anchors_xmin, ancho
         num_macro_type = int(cfg.DATASET.NUM_CLASSES / cfg.DATASET.NUM_OF_TYPE)
         num_of_type = cfg.DATASET.NUM_OF_TYPE
         macro_type = scores_action[:,:,:num_macro_type]
+        macro_type = sigmoid(macro_type)
 
         max_values = np.amax(macro_type, axis=2)
         conf_tmp = np.reshape(max_values, num_element)
