@@ -316,16 +316,29 @@ class PredHead(nn.Module):
         NUM_OF_TYPE = cfg.DATASET.NUM_OF_TYPE
 
         # [batch_size, 256, (16,8,4,2)] -> [batch_size, _, (16,8,4,2)]
+        self.share_partial = cfg.MODEL.SHARE_PARTIAL
         if cfg.MODEL.CLS_BRANCH == False:
-            af_cls = nn.Conv1d(cfg.MODEL.HEAD_DIM, num_class, kernel_size=3, padding=1)
-            ab_cls = nn.Conv1d(cfg.MODEL.HEAD_DIM, num_box * num_class, kernel_size=3, padding=1)
+            if cfg.MODEL.SHARE_PARTIAL == True:
+                # todo: change variable not declare conv1d
+                SHARE_PARTIAL_DIM = 192
+                self.SHARE_PARTIAL_DIM = SHARE_PARTIAL_DIM
+                af_cls_micro = nn.Conv1d(SHARE_PARTIAL_DIM, 1, kernel_size=3, padding=1)
+                af_cls_macro = nn.Conv1d(SHARE_PARTIAL_DIM, 1, kernel_size=3, padding=1)
+                ab_cls_micro = nn.Conv1d(SHARE_PARTIAL_DIM, num_box * 1, kernel_size=3, padding=1)
+                ab_cls_macro = nn.Conv1d(SHARE_PARTIAL_DIM, num_box * 1, kernel_size=3, padding=1)
+            else:
+                af_cls = nn.Conv1d(cfg.MODEL.HEAD_DIM, num_class, kernel_size=3, padding=1)
+                ab_cls = nn.Conv1d(cfg.MODEL.HEAD_DIM, num_box * num_class, kernel_size=3, padding=1)
         else:
             af_cls = nn.Conv1d(cfg.MODEL.HEAD_DIM, int(num_class/NUM_OF_TYPE), kernel_size=3, padding=1)
             ab_cls = nn.Conv1d(cfg.MODEL.HEAD_DIM, num_box * int(num_class/NUM_OF_TYPE), kernel_size=3, padding=1)
 
         af_reg = nn.Conv1d(cfg.MODEL.HEAD_DIM, 2, kernel_size=3, padding=1)
         ab_reg = nn.Conv1d(cfg.MODEL.HEAD_DIM, num_box * 2, kernel_size=3, padding=1)
-        self.pred_heads = nn.ModuleList([af_cls, af_reg, ab_cls, ab_reg])
+        if cfg.MODEL.SHARE_PARTIAL == True:
+            self.pred_heads = nn.ModuleList([nn.ModuleList([af_cls_macro, af_cls_micro]), af_reg, nn.ModuleList([ab_cls_macro, ab_cls_micro]), ab_reg])
+        else:
+            self.pred_heads = nn.ModuleList([af_cls, af_reg, ab_cls, ab_reg])
         if cfg.MODEL.CLS_BRANCH == True:
             self.head_branches.append(PredHeadBranch(cfg))
             self.head_branches.append(PredHeadBranch(cfg))
@@ -352,7 +365,21 @@ class PredHead(nn.Module):
                 feat = torch.cat((feat, feats[0]), dim=1)
             if i == 5:
                 feat = torch.cat((feat, feats[2]), dim=1)
-            preds.append(pred_head(feat))
+            if self.share_partial == False:
+                preds.append(pred_head(feat))
+            else: # feat: b, 256, 16, true but only for 0 and 3
+                if isinstance(pred_head, nn.Conv1d):
+                    preds.append(pred_head(feat))
+                else:
+                    macro_pred_head = pred_head[0]
+                    micro_pred_head = pred_head[1]
+
+                    output1 = feat[:, :self.SHARE_PARTIAL_DIM]
+                    output1 = macro_pred_head(output1) # b, 1, 16
+                    output2 = feat[:, -self.SHARE_PARTIAL_DIM:]
+                    output2 = micro_pred_head(output2) # b, 1, 16
+                    final_o = torch.cat((output1, output2), dim=1)
+                    preds.append(final_o)
 
         return tuple(preds)
 
