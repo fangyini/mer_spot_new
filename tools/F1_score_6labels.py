@@ -8,7 +8,7 @@ from sklearn.metrics import f1_score, recall_score, precision_score
 
 def calculate_accuracy_and_f1(gt_minor_type, predicted_minor_type):
     macro_filter = np.where((gt_minor_type >= 4) & (gt_minor_type <= 6))
-    if len(macro_filter) == 0:
+    if macro_filter[0].shape[0] == 0:
         f11 = 0
     else:
         macro_gt = gt_minor_type[macro_filter]
