@@ -11,16 +11,16 @@ def calculate_accuracy_and_f1(gt_minor_type, predicted_minor_type):
     macro_gt = gt_minor_type[macro_filter]
     macro_predict = predicted_minor_type[macro_filter]
     #f11 = f1_score(macro_gt, macro_predict, average='micro')
-    a = recall_score(macro_gt, macro_predict, average='macro')
-    b = precision_score(macro_gt, macro_predict, average='macro')
+    a = recall_score(macro_gt, macro_predict, average='macro', zero_division=0)
+    b = precision_score(macro_gt, macro_predict, average='macro', zero_division=0)
     f11 = (2*a*b)/(a+b)
 
     micro_filter = np.where((gt_minor_type >= 1) & (gt_minor_type <= 3))
     micro_gt = gt_minor_type[micro_filter]
     micro_predict = predicted_minor_type[micro_filter]
     #f12 = f1_score(micro_gt, micro_predict, average='micro')
-    a = recall_score(micro_gt, micro_predict, average='macro')
-    b = precision_score(micro_gt, micro_predict, average='macro')
+    a = recall_score(micro_gt, micro_predict, average='macro', zero_division=0)
+    b = precision_score(micro_gt, micro_predict, average='macro', zero_division=0)
     f12 = (2 * a * b) / (a + b)
     return f11, f12
 
