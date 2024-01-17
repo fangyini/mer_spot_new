@@ -99,15 +99,15 @@ def main(subject, config):
         print('F1 ab: ', f1_ab, ', af: ', f1_af)
         
         with open(log_path, 'a') as f:
-            f.write('Epoch %d: loss: %.4f AF cls loss: %.4f, reg loss: %.4f AB cls loss: %.4f, reg loss: %.4f\n' % (
-                epoch, loss_train, cls_loss_af, reg_loss_af, cls_loss_ab, reg_loss_ab))
+            f.write('Epoch %d: loss: %.4f AF cls loss: %.4f, reg loss: %.4f AB cls loss: %.4f, reg loss: %.4f, f1 ab: %.4f, f1 af: %.4f \n' % (
+                epoch, loss_train, cls_loss_af, reg_loss_af, cls_loss_ab, reg_loss_ab, f1_ab, f1_af))
 
         # decay lr
         scheduler.step()
         lr = scheduler.get_last_lr()
 
         if (epoch+1) % cfg.TEST.EVAL_INTERVAL == 0:
-            if cfg.BASIC.SAVE_MODEL == True and epoch > 20:
+            if cfg.BASIC.SAVE_MODEL == True and epoch > 30:
                 save_model(cfg, epoch=epoch, model=model, optimizer=optimizer, subject=subject)
             out_df_ab, out_df_af = evaluation(val_loader, model, epoch, cfg)
             out_df_list = [out_df_ab, out_df_af]
