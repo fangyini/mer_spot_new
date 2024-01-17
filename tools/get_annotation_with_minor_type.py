@@ -1,6 +1,9 @@
 import csv
 import json
 
+macro_types_summary = {0:0, 1:0, 2:0, 3:0}
+micro_types_summary = {0:0, 1:0, 2:0, 3:0}
+
 annotation_file = '../casme2_annotation.csv'
 new_file = '../casme2_annotation_minor_type.csv'
 total_micro = 0
@@ -14,10 +17,19 @@ test_micro = 0
 for x in gt_dict:
     m1 = len(gt_dict[x]['micro']['start'])
     m2 = len(gt_dict[x]['macro']['start'])
+    if m1 > 0:
+        for element in gt_dict[x]['micro']['start']:
+            t = gt_dict[x]['micro']['start'][element]['Type1']
+            micro_types_summary[t] += 1
+    if m2 > 0:
+        for element in gt_dict[x]['macro']['start']:
+            t = gt_dict[x]['macro']['start'][element]['Type1']
+            macro_types_summary[t] += 1
     test_micro += m1
     test_macro += m2
 print(test_macro, test_micro)
-
+print(macro_types_summary)
+print(micro_types_summary)
 with open(new_file, 'w', newline='') as csvfile:
     #writer = csv.writer(csvfile, delimiter=' ',
     #                        quotechar='|', quoting=csv.QUOTE_MINIMAL)
