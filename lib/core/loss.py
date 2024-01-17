@@ -1,11 +1,13 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torcheval.metrics.functional import multiclass_f1_score
+from torcheval.metrics.functional import multiclass_f1_score, multiclass_precision, multiclass_recall
+from torchmetrics.classification import Recall, Precision
 
 dtype = torch.cuda.FloatTensor() if torch.cuda.is_available() else torch.FloatTensor()
 dtypel = torch.cuda.LongTensor() if torch.cuda.is_available() else torch.LongTensor()
-
+precision_metric = Precision(task="multiclass", average='macro', num_classes=3)
+recall_metric = Recall(task="multiclass", average='macro', num_classes=3)
 
 def abs_smooth(x):
     '''
@@ -119,7 +121,10 @@ def loss_function_ab(anchors_x, anchors_w, anchors_rx_ls, anchors_rw_ls, anchors
             ce_loss = nn.CrossEntropyLoss()
             cls_loss_type = ce_loss(final_pred, final_label)
             with torch.no_grad():
-                f1 = multiclass_f1_score(final_pred, final_label, num_classes=minor_type, average='micro')
+                final_pred = torch.argmax(final_pred, dim=1)
+                precision = precision_metric(final_pred, final_label)
+                recall = recall_metric(final_pred, final_label)
+                f1 = 2 * precision * recall / (precision + recall)
                 f1 = f1.cpu().numpy()
                 #print('f1 score: ', f1)
         cls_loss = cls_loss_exp + cls_loss_type * 10
@@ -230,7 +235,11 @@ def loss_function_af(cate_label, preds_cls, target_loc, pred_loc, cfg, weight):
             ce_loss = nn.CrossEntropyLoss()
             cls_loss_type = ce_loss(final_pred, final_label)
             with torch.no_grad():
-                f1 = multiclass_f1_score(final_pred, final_label, num_classes=minor_type, average='micro')
+                final_pred = torch.argmax(final_pred, dim=1)
+                precision = precision_metric(final_pred, final_label)
+                recall = recall_metric(final_pred, final_label)
+
+                f1 = 2*precision*recall / (precision+recall)
                 f1 = f1.cpu().numpy()
                 #print('f1 score: ', f1)
             #cate_loss_f_type = Focal_loss(num_classes=minor_type, class_weight=weight)
