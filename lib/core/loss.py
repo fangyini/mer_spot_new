@@ -6,8 +6,9 @@ from torchmetrics.classification import Recall, Precision
 
 dtype = torch.cuda.FloatTensor() if torch.cuda.is_available() else torch.FloatTensor()
 dtypel = torch.cuda.LongTensor() if torch.cuda.is_available() else torch.LongTensor()
-precision_metric = Precision(task="multiclass", average='macro', num_classes=3)
-recall_metric = Recall(task="multiclass", average='macro', num_classes=3)
+DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+precision_metric = Precision(task="multiclass", average='macro', num_classes=3).to(DEVICE)
+recall_metric = Recall(task="multiclass", average='macro', num_classes=3).to(DEVICE)
 
 def abs_smooth(x):
     '''
