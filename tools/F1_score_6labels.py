@@ -507,7 +507,7 @@ if __name__ == '__main__':
     parser.add_argument('--version', type=int, default=28)
     parser.add_argument('--top_k', type=bool, default=False)
     parser.add_argument('--label_frequency', type=float, default=1.0)
-    parser.add_argument('--start_threshold', type=int, default=100)
+    parser.add_argument('--start_threshold', type=int, default=300)
     parser.add_argument('--most_pos_num', type=int, default=70)
 
     args = parser.parse_args()
