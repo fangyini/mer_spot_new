@@ -282,7 +282,7 @@ def main_threshold(path, dataset, annotation, version, label_frequency, start_th
         # all subjects in the same epoch
         test_path = [os.path.join(i, 'test_' + str(txt_index).zfill(2) + '.txt') for i in test_path_temp]
         # confirm the best threshold
-        best_threshold = 0
+        best_threshold_micro, best_threshold_macro = 0, 0
         for k_temp in range(start_threshold, 700, 1):
             k = 1.0 * k_temp / 1000
             FP, FN, TP = 0, 0, 0
@@ -455,12 +455,14 @@ def main_threshold(path, dataset, annotation, version, label_frequency, start_th
                 best_m1 = F1_SCORE_M1
                 best_tp1 = TP1
                 best_n1 = N1
+                best_threshold_macro = k_temp
                 best_f11, _, cm1, _ = calculate_accuracy_and_f1(gt_minor_type, predicted_minor_type)
                 #print('macro f1: ', best_f11, ', tp:', TP1, ', total:', N1)
             if F1_SCORE_M2 > best_m2:
                 best_m2 = F1_SCORE_M2
                 best_tp2 = TP2
                 best_n2 = N2
+                best_threshold_micro = k_temp
                 _, best_f12, _, cm2 = calculate_accuracy_and_f1(gt_minor_type, predicted_minor_type)
                 #print('micro f1: ', best_f12, ', tp:', TP2, ', total:', N2)
             # record best the F1_scroe and the result of predictions
@@ -486,7 +488,7 @@ def main_threshold(path, dataset, annotation, version, label_frequency, start_th
                 # print(TP, TP1, TP2, N1, N2)
             # print(TP, TP1, TP2, N1, N2,k_temp/1000)
         print("epoch: ", e)
-        print("threshold: ", best_threshold)
+        print("overall threshold: ", best_threshold, ', macro threshold: ', best_threshold_macro, ', micro threshold: ', best_threshold_micro)
         print("f1_score_macro: %05f, f1_score_micro: %05f, f1_score: %05f" % (best_m1, best_m2, best))
         print(best_tp1, best_tp2, best_n1, best_n2)
         print('macro F1: %05f, micro F1: %05f' % (best_f11, best_f12))
