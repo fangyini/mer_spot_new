@@ -275,11 +275,14 @@ def main_threshold(path, dataset, annotation, version, label_frequency, start_th
         os.remove(threshold_out)
     for e in range(0, 60):
         best, best_m1, best_m2 = 0, 0, 0
+        best_tp1, best_tp2, best_n1, best_n2, best_f11, best_f12 = 0, 0, 0, 0, 0, 0
+        cm1, cm2 = 0, 0
         best_recall = 0
         txt_index = txts[e]
         # all subjects in the same epoch
         test_path = [os.path.join(i, 'test_' + str(txt_index).zfill(2) + '.txt') for i in test_path_temp]
         # confirm the best threshold
+        best_threshold = 0
         for k_temp in range(start_threshold, 700, 1):
             k = 1.0 * k_temp / 1000
             FP, FN, TP = 0, 0, 0
@@ -463,6 +466,7 @@ def main_threshold(path, dataset, annotation, version, label_frequency, start_th
             # record best the F1_scroe and the result of predictions
             if F1_SCORE > best:
                 best = F1_SCORE
+                best_threshold = k_temp
                 # print('number of epoch: %d, threshold: %5f'%(e, k))
                 # print("recall: %05f, precision: %05f, f1_score: %05f"%(recall_all, precision_all, best))
                 with open(best_out, 'w') as f_sout:
@@ -482,6 +486,7 @@ def main_threshold(path, dataset, annotation, version, label_frequency, start_th
                 # print(TP, TP1, TP2, N1, N2)
             # print(TP, TP1, TP2, N1, N2,k_temp/1000)
         print("epoch: ", e)
+        print("threshold: ", best_threshold)
         print("f1_score_macro: %05f, f1_score_micro: %05f, f1_score: %05f" % (best_m1, best_m2, best))
         print(best_tp1, best_tp2, best_n1, best_n2)
         print('macro F1: %05f, micro F1: %05f' % (best_f11, best_f12))
