@@ -12,12 +12,12 @@ def calculate_accuracy_and_f1(gt_minor_type, predicted_minor_type):
         f11 = 0
         cm1 = 0
     else:
-        macro_gt = gt_minor_type[macro_filter]
-        macro_predict = predicted_minor_type[macro_filter]
-        #f11 = f1_score(macro_gt, macro_predict, average='micro')
-        a = recall_score(macro_gt, macro_predict, average='macro', zero_division=0)
-        b = precision_score(macro_gt, macro_predict, average='macro', zero_division=0)
-        f11 = (2*a*b)/(a+b+1e-10)
+        macro_gt = gt_minor_type[macro_filter]-1
+        macro_predict = predicted_minor_type[macro_filter]-1
+        f11 = f1_score(macro_gt, macro_predict, average='micro')
+        #a = recall_score(macro_gt, macro_predict, average='macro', zero_division=0)
+        #b = precision_score(macro_gt, macro_predict, average='macro', zero_division=0)
+        #f11 = (2*a*b)/(a+b+1e-10)
         cm1 = confusion_matrix(macro_gt, macro_predict)
 
     micro_filter = np.where((gt_minor_type >= 1) & (gt_minor_type <= 3))
@@ -25,12 +25,12 @@ def calculate_accuracy_and_f1(gt_minor_type, predicted_minor_type):
         f12 = 0
         cm2 = 0
     else:
-        micro_gt = gt_minor_type[micro_filter]
-        micro_predict = predicted_minor_type[micro_filter]
-        #f12 = f1_score(micro_gt, micro_predict, average='micro')
-        a = recall_score(micro_gt, micro_predict, average='macro', zero_division=0)
-        b = precision_score(micro_gt, micro_predict, average='macro', zero_division=0)
-        f12 = (2 * a * b) / (a + b + 1e-10)
+        micro_gt = gt_minor_type[micro_filter]-1
+        micro_predict = predicted_minor_type[micro_filter]-1
+        f12 = f1_score(micro_gt, micro_predict, average='micro')
+        #a = recall_score(micro_gt, micro_predict, average='macro', zero_division=0)
+        #b = precision_score(micro_gt, micro_predict, average='macro', zero_division=0)
+        #f12 = (2 * a * b) / (a + b + 1e-10)
         cm2 = confusion_matrix(micro_gt, micro_predict)
     return f11, f12, cm1, cm2
 
