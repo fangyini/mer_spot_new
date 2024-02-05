@@ -7,6 +7,11 @@ import math
 from sklearn.metrics import f1_score, recall_score, precision_score, confusion_matrix
 
 def calculate_accuracy_and_f1(gt_minor_type, predicted_minor_type):
+    overall_index = np.where((gt_minor_type >= 1) & (gt_minor_type <= 6))
+    macro_gt = gt_minor_type[overall_index] - 1
+    macro_predict = predicted_minor_type[overall_index] - 1
+    f1_overall = f1_score(macro_gt, macro_predict, average='micro')
+
     macro_filter = np.where((gt_minor_type >= 4) & (gt_minor_type <= 6))
     if macro_filter[0].shape[0] == 0:
         f11 = 0
@@ -32,7 +37,7 @@ def calculate_accuracy_and_f1(gt_minor_type, predicted_minor_type):
         #b = precision_score(micro_gt, micro_predict, average='macro', zero_division=0)
         #f12 = (2 * a * b) / (a + b + 1e-10)
         cm2 = confusion_matrix(micro_gt, micro_predict)
-    return f11, f12, cm1, cm2
+    return f11, f12, cm1, cm2, f1_overall
 
 
 def max_iou(ann_csv, part_pre, TP1, TP2, write_list):
@@ -278,6 +283,8 @@ def main_threshold(path, dataset, annotation, version, label_frequency, start_th
         best_tp1, best_tp2, best_n1, best_n2, best_f11, best_f12 = 0, 0, 0, 0, 0, 0
         cm1, cm2 = 0, 0
         best_recall = 0
+        best_f1_overall = 0
+
         txt_index = txts[e]
         # all subjects in the same epoch
         test_path = [os.path.join(i, 'test_' + str(txt_index).zfill(2) + '.txt') for i in test_path_temp]
@@ -451,20 +458,23 @@ def main_threshold(path, dataset, annotation, version, label_frequency, start_th
             # Sometimes, there are no predictions of micro-expressions or macro-expressions
             F1_SCORE_M1, F1_SCORE_M2, F1_SCORE, precision_all = all_score(TP1, TP2, N1, N2, recall1,
                                                                           recall2, recall_all)
+            best_f11_, best_f12_, cm1_, cm2_, f1_overall_ = calculate_accuracy_and_f1(gt_minor_type, predicted_minor_type)
+            if f1_overall_ > best_f1_overall:
+                best_f1_overall = f1_overall_
             if F1_SCORE_M1 > best_m1:
                 best_m1 = F1_SCORE_M1
                 best_tp1 = TP1
                 best_n1 = N1
                 best_threshold_macro = k_temp
-                best_f11, _, cm1, _ = calculate_accuracy_and_f1(gt_minor_type, predicted_minor_type)
-                #print('macro f1: ', best_f11, ', tp:', TP1, ', total:', N1)
+                best_f11 = best_f11_
+                cm1 = cm1_
             if F1_SCORE_M2 > best_m2:
                 best_m2 = F1_SCORE_M2
                 best_tp2 = TP2
                 best_n2 = N2
                 best_threshold_micro = k_temp
-                _, best_f12, _, cm2 = calculate_accuracy_and_f1(gt_minor_type, predicted_minor_type)
-                #print('micro f1: ', best_f12, ', tp:', TP2, ', total:', N2)
+                best_f12 = best_f12_
+                cm2 = cm2_
             # record best the F1_scroe and the result of predictions
             if F1_SCORE > best:
                 best = F1_SCORE
@@ -495,6 +505,7 @@ def main_threshold(path, dataset, annotation, version, label_frequency, start_th
         print('confusion matrix: macro and micro',)
         print(cm1)
         print(cm2)
+        print('best f1 overall: ', best_f1_overall)
         print('*' * 10)
 
 
