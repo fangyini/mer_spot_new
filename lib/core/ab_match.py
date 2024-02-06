@@ -50,7 +50,7 @@ def anchor_box_adjust(cfg, anchors, layer):
     return anchors_class, anchors_x, anchors_w
 
 
-def match_anchor_gt(cfg, num_actions, anchor_x, anchor_w, glabel, gbbox, num_match):
+def match_anchor_gt(cfg, num_actions, anchor_x, anchor_w, glabel, gbbox, num_match, gchecking):
     '''
     For each anchor box, calculate the matched ground truth box: box_x, box_w, match_score, match_label
     There are three points not perfect enough:
@@ -70,9 +70,11 @@ def match_anchor_gt(cfg, num_actions, anchor_x, anchor_w, glabel, gbbox, num_mat
     match_w = torch.zeros(num_match).type_as(dtype)
     match_scores = torch.zeros(num_match).type_as(dtype)
     match_labels = torch.zeros(num_match).type_as(dtypel)
+    match_checking = torch.zeros(num_match).type_as(dtypel)
 
     for idx in range(num_actions):
         label = glabel[idx]
+        check = gchecking[idx]
         # improve point 1
         box_min = gbbox[idx, 0]
         box_max = gbbox[idx, 1]
@@ -99,12 +101,16 @@ def match_anchor_gt(cfg, num_actions, anchor_x, anchor_w, glabel, gbbox, num_mat
         ref_label = ref_label * label  # [80]
         match_labels = imask * ref_label + (1 - imask) * match_labels
 
+        ref_label = torch.ones(match_labels.size()).type_as(dtypel)
+        ref_label = ref_label * check  # [80]
+        match_checking = imask * ref_label + (1 - imask) * match_checking
+
         match_scores = torch.max(jaccards, match_scores)
 
-    return match_x, match_w, match_labels, match_scores
+    return match_x, match_w, match_labels, match_scores, match_checking
 
 
-def anchor_bboxes_encode(cfg, anchors, glabels, gbboxes, g_action_nums, layer):
+def anchor_bboxes_encode(cfg, anchors, glabels, gbboxes, g_action_nums, layer, checking):
     '''
     Produce matched ground truth with each adjusted anchors
     anchors: bs, ti*n_box, nclass+3
@@ -126,6 +132,7 @@ def anchor_bboxes_encode(cfg, anchors, glabels, gbboxes, g_action_nums, layer):
     batch_match_w = list()
     batch_match_scores = list()
     batch_match_labels = list()
+    batch_match_checks = list()
 
     num_data = int(g_action_nums.shape[0])
     for i in range(num_data):
@@ -135,10 +142,12 @@ def anchor_bboxes_encode(cfg, anchors, glabels, gbboxes, g_action_nums, layer):
         action_num = int(action_num.item())
 
         glabel = glabels[i, :action_num]  # num_action,
+        gchecking = checking[i, :action_num]
         gbbox = gbboxes[i, :action_num, :]  # num_action, 2
 
-        match_x, match_w, match_labels, match_scores = match_anchor_gt(cfg, action_num, dboxes_x,
-                                                                       dboxes_w, glabel, gbbox, num_match)
+        match_x, match_w, match_labels, match_scores, match_checking = match_anchor_gt(cfg, action_num, dboxes_x,
+                                                                       dboxes_w, glabel, gbbox, num_match,
+                                                                       gchecking)
 
         match_x = torch.unsqueeze(match_x, dim=0)  # 1, ti*n_box
         batch_match_x.append(match_x)
@@ -152,12 +161,16 @@ def anchor_bboxes_encode(cfg, anchors, glabels, gbboxes, g_action_nums, layer):
         match_labels = torch.unsqueeze(match_labels, dim=0)
         batch_match_labels.append(match_labels)
 
+        match_checking = torch.unsqueeze(match_checking, dim=0)
+        batch_match_checks.append(match_checking)
+
     batch_match_x = torch.cat(batch_match_x, dim=0)
     batch_match_w = torch.cat(batch_match_w, dim=0)
     batch_match_scores = torch.cat(batch_match_scores, dim=0)
     batch_match_labels = torch.cat(batch_match_labels, dim=0)
+    batch_match_checks = torch.cat(batch_match_checks, dim=0)
     anchors_x = dboxes_x.expand(num_data, temporal_length * num_dbox)
     anchors_w = dboxes_w.expand(num_data, temporal_length * num_dbox)
 
     return batch_match_x, batch_match_w, batch_match_scores, batch_match_labels, \
-           anchors_x, anchors_w, anchors_rx, anchors_rw, anchors_class
+           anchors_x, anchors_w, anchors_rx, anchors_rw, anchors_class, batch_match_checks

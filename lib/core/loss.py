@@ -55,7 +55,7 @@ class Focal_loss(nn.Module):
 
 
 def loss_function_ab(anchors_x, anchors_w, anchors_rx_ls, anchors_rw_ls, anchors_class,
-                     match_x, match_w, match_scores, match_labels, cfg, weight):
+                     match_x, match_w, match_scores, match_labels, cfg, weight, check):
     '''
     calculate classification loss, localization loss and overlap_loss
     pmask, hmask and nmask are used to select training samples
@@ -78,6 +78,7 @@ def loss_function_ab(anchors_x, anchors_w, anchors_rx_ls, anchors_rw_ls, anchors
         anchors_class = anchors_class.view(-1, cfg.DATASET.NUM_CLASSES+int(cfg.DATASET.NUM_CLASSES/cfg.DATASET.NUM_OF_TYPE))[keep]
 
     match_labels = match_labels.view(-1)[keep]
+    check = check.view(-1)[keep]
 
     if cfg.MODEL.CLS_BRANCH == False:
         cate_loss_f = Focal_loss(num_classes=cfg.DATASET.NUM_CLASSES, class_weight=weight)
@@ -97,9 +98,18 @@ def loss_function_ab(anchors_x, anchors_w, anchors_rx_ls, anchors_rw_ls, anchors
 
         # only use positive sample,
         pred_cls_minor = anchors_class[:, major_type:]
+
+        # print check
+        '''checking_index = torch.where(check > 0)
+        pred_checking = pred_cls_minor[checking_index][:, 3:]
+        pred_checking = torch.argmax(pred_checking, dim=1)  # should be all 0
+        if pred_checking.size()[0] != 0:
+            acc = len(torch.where(pred_checking == 0)[0]) / pred_checking.size()[0]
+            print('AB pred acc:', acc)'''
+
         pos_sample = torch.where(match_labels>0)
         if pos_sample[0].size()[0] == 0:
-            cls_loss_type = 0
+            cls_loss_type = torch.tensor(0).to(DEVICE)
             f1=torch.nan
         else:
             cate_label_minor = match_labels[pos_sample]
@@ -108,18 +118,25 @@ def loss_function_ab(anchors_x, anchors_w, anchors_rx_ls, anchors_rw_ls, anchors
             me_labels_ind = torch.where(cate_label_minor <= minor_type)
             me_label_gt = cate_label_minor[me_labels_ind] - 1  # me: 1,2,3 -> 0,1,2
             me_label_pred = pred_cls_minor[me_labels_ind][:, :minor_type]
-            me_weight = torch.tensor([27, 73, 35]).to(DEVICE)
-            me_weight = me_weight.sum() / me_weight
-            ce_loss_me = nn.CrossEntropyLoss(weight=me_weight)
-            cls_loss_me = ce_loss_me(me_label_pred, me_label_gt)
+            if me_labels_ind[0].size()[0] == 0:
+                cls_loss_me = torch.tensor(0).to(DEVICE)
+            else:
+                me_weight = torch.tensor([27, 73, 35]).to(DEVICE)
+                me_weight = me_weight.sum() / me_weight
+                ce_loss_me = nn.CrossEntropyLoss(weight=me_weight)
+                cls_loss_me = ce_loss_me(me_label_pred, me_label_gt)
 
             mae_labels_ind = torch.where(cate_label_minor > minor_type)
             mae_label_gt = cate_label_minor[mae_labels_ind] - 1 - minor_type  # mae: 4,5,6->0,1,2
             mae_label_pred = pred_cls_minor[mae_labels_ind][:, minor_type:]
-            mae_weight = torch.tensor([304, 288, 53]).to(DEVICE)
-            mae_weight = mae_weight.sum() / mae_weight
-            ce_loss_mae = nn.CrossEntropyLoss(weight=mae_weight)
-            cls_loss_mae = ce_loss_mae(mae_label_pred, mae_label_gt)
+            if mae_labels_ind[0].size()[0] == 0:
+                cls_loss_mae = torch.tensor(0).to(DEVICE)
+            else:
+                mae_weight = torch.tensor([304, 288, 53]).to(DEVICE)
+                mae_weight = mae_weight.sum() / mae_weight
+                ce_loss_mae = nn.CrossEntropyLoss(weight=mae_weight)
+                cls_loss_mae = ce_loss_mae(mae_label_pred, mae_label_gt)
+
             cls_loss_type = cls_loss_me + cls_loss_mae
             with torch.no_grad():  # change back to 1 to 6
                 final_pred_me = torch.argmax(me_label_pred, dim=1)
@@ -130,7 +147,10 @@ def loss_function_ab(anchors_x, anchors_w, anchors_rx_ls, anchors_rw_ls, anchors
                 f1 = f1.cpu().numpy()
         #cls_loss = cls_loss_exp + cls_loss_type * 10
         cls_loss = cls_loss_type
-    cls_loss = cls_loss / torch.sum(pmask)  # avoid no positive
+    '''if torch.sum(pmask) > 0:
+        cls_loss = cls_loss / torch.sum(pmask)  # avoid no positive
+    else:
+        cls_loss = torch.tensor(0.).type_as(cls_loss)'''
 
     # localization loss
     if torch.sum(pmask) > 0:
@@ -142,7 +162,7 @@ def loss_function_ab(anchors_x, anchors_w, anchors_rx_ls, anchors_rw_ls, anchors
 
         loc_loss = abs_smooth(target_rx - anchors_rx_ls) + abs_smooth(target_rw - anchors_rw_ls)
     else:
-        loc_loss = torch.tensor(0.).type_as(cls_loss)
+        loc_loss = torch.tensor(0.).to(DEVICE) #type_as(cls_loss)
     # print('loss:', cls_loss.item(), loc_loss.item(), overlap_loss.item())
 
     return cls_loss, loc_loss, f1
@@ -175,7 +195,7 @@ def iou_loss(pred, target):
     return loss
 
 
-def loss_function_af(cate_label, preds_cls, target_loc, pred_loc, cfg, weight):
+def loss_function_af(cate_label, preds_cls, target_loc, pred_loc, cfg, weight, checking_label):
     '''
     preds_cls: bs, t1+t2+..., n_class
     pred_regs_batch: bs, t1+t2+..., 2
@@ -183,6 +203,8 @@ def loss_function_af(cate_label, preds_cls, target_loc, pred_loc, cfg, weight):
     batch_size = preds_cls.size(0)
     cate_label_view = cate_label.view(-1)
     cate_label_view = cate_label_view.type_as(dtypel)
+    checking_view = checking_label.view(-1)
+    checking_view = checking_view.type_as(dtypel)
     if cfg.MODEL.CLS_BRANCH == False:
         preds_cls_view = preds_cls.view(-1, cfg.DATASET.NUM_CLASSES)
     else:
@@ -208,17 +230,28 @@ def loss_function_af(cate_label, preds_cls, target_loc, pred_loc, cfg, weight):
         # cate_label to only 1 and 2
         ind_micro = torch.where((cate_label_view<=minor_type) & (cate_label_view>0))
         ind_macro = torch.where(cate_label_view>minor_type)
-        major_cate_label = cate_label_view.clone() # todo:no gradient??
+        major_cate_label = cate_label_view.clone()
         major_cate_label[ind_micro] = 2
         major_cate_label[ind_macro] = 1
         cate_loss_f = Focal_loss(num_classes=major_type, class_weight=weight)
         cls_loss_exp = cate_loss_f(preds_cls_view[:, :major_type], major_cate_label)
 
-        # only use positive sample, todo: check weight?
+        # only use positive sample
         pred_cls_minor = preds_cls_view[:, major_type:]
+
+        # checking
+        '''checking_index = torch.where(checking_view>0)
+        #gt_checking = cate_label_view[checking_index]
+        #assert gt_checking.any() == 4
+        pred_checking = pred_cls_minor[checking_index][:, 3:]
+        pred_checking = torch.argmax(pred_checking, dim=1) # should be all 0
+        if pred_checking.size()[0] != 0:
+            acc = len(torch.where(pred_checking == 0)[0]) / pred_checking.size()[0]
+            print('AF pred acc:', acc)'''
+
         pos_sample = torch.where(cate_label_view>0)
         if pos_sample[0].size()[0] == 0:
-            cls_loss_type = 0
+            cls_loss_type = torch.tensor(0).to(DEVICE)
             f1 = torch.nan
         else:
             cate_label_minor = cate_label_view[pos_sample]
@@ -227,22 +260,28 @@ def loss_function_af(cate_label, preds_cls, target_loc, pred_loc, cfg, weight):
             me_labels_ind = torch.where(cate_label_minor<=minor_type)
             me_label_gt = cate_label_minor[me_labels_ind] - 1  # me: 1,2,3 -> 0,1,2
             me_label_pred = pred_cls_minor[me_labels_ind][:, :minor_type]
-            me_weight = torch.tensor([27, 73, 35]).to(DEVICE)
-            me_weight = me_weight.sum() / me_weight
-            ce_loss_me = nn.CrossEntropyLoss(weight=me_weight)
-            cls_loss_me = ce_loss_me(me_label_pred, me_label_gt)
+            if me_labels_ind[0].size()[0] == 0:
+                cls_loss_me = torch.tensor(0).to(DEVICE)
+            else:
+                me_weight = torch.tensor([27, 73, 35]).to(DEVICE)
+                me_weight = me_weight.sum() / me_weight
+                ce_loss_me = nn.CrossEntropyLoss(weight=me_weight)
+                cls_loss_me = ce_loss_me(me_label_pred, me_label_gt)
 
             mae_labels_ind = torch.where(cate_label_minor>minor_type)
-            mae_label_gt = cate_label_minor[mae_labels_ind] - 1 - minor_type # mae: 4,5,6->0,1,2
+            mae_label_gt = cate_label_minor[mae_labels_ind] - 1 - minor_type  # mae: 4,5,6->0,1,2
             mae_label_pred = pred_cls_minor[mae_labels_ind][:, minor_type:]
-            mae_weight = torch.tensor([304, 288, 53]).to(DEVICE)
-            mae_weight = mae_weight.sum() / mae_weight
-            ce_loss_mae = nn.CrossEntropyLoss(weight=mae_weight)
-            cls_loss_mae = ce_loss_mae(mae_label_pred, mae_label_gt)
+            if mae_labels_ind[0].size()[0] == 0:
+                cls_loss_mae = torch.tensor(0).to(DEVICE)
+            else:
+                mae_weight = torch.tensor([304, 288, 53]).to(DEVICE)
+                mae_weight = mae_weight.sum() / mae_weight
+                ce_loss_mae = nn.CrossEntropyLoss(weight=mae_weight)
+                cls_loss_mae = ce_loss_mae(mae_label_pred, mae_label_gt)
             cls_loss_type = cls_loss_me + cls_loss_mae
             with torch.no_grad(): # change back to 1 to 6
-                final_pred_me = torch.argmax(me_label_pred, dim=1)
                 final_pred_mae = torch.argmax(mae_label_pred, dim=1) + minor_type
+                final_pred_me = torch.argmax(me_label_pred, dim=1)
                 final_pred = torch.cat((final_pred_me, final_pred_mae))
                 final_label = torch.cat((me_label_gt, mae_label_gt + minor_type))
                 f1 = multiclass_f1_score(final_pred, final_label, average='micro')
@@ -272,6 +311,12 @@ def loss_function_af(cate_label, preds_cls, target_loc, pred_loc, cfg, weight):
             #cate_loss_f_type = Focal_loss(num_classes=minor_type, class_weight=weight)
             #cls_loss_type = cate_loss_f_type(final_pred, final_label)
         #cls_loss = cls_loss_exp + cls_loss_type * 10  # todo: check range
-        cls_loss = cls_loss_type
-    cate_loss = cls_loss / (torch.sum(pmask) + batch_size)  # avoid no positive
+        cate_loss = cls_loss_type
+
+    '''if torch.sum(pmask) > 0:
+        cate_loss = cls_loss / torch.sum(pmask)  # avoid no positive
+    else:
+        cate_loss = torch.tensor(0.).to(DEVICE)''' #.type_as(cls_loss)
+
+    #cate_loss = cls_loss / (torch.sum(pmask) + batch_size)  # avoid no positive
     return cate_loss, reg_loss, f1

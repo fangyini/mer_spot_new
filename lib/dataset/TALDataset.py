@@ -79,6 +79,7 @@ class TALDataset(Dataset):
 
             if self.is_micro_system == True:
                 new_label_list = []
+                is_checking = []
                 for idx in range(action.shape[0]):
                     label_idx = label[idx]
                     if label_idx == 2:
@@ -107,8 +108,18 @@ class TALDataset(Dataset):
                             new_label = 0
                         else:
                             new_label += (1 + NUM_OF_TYPE)
+                    if label_idx != 0:
+                        if start == '832' or start == '1421' or start == '2005':
+                            is_checking.append(1)
+                        else:
+                            #print(start)
+                            is_checking.append(0)
+                    else:
+                        is_checking.append(0)
                     new_label_list.append(new_label)
                 new_label = np.stack(new_label_list)
+                is_checking = np.stack(is_checking)
+                is_checking = is_checking.reshape(action.shape[0])
                 label = new_label.reshape(action.shape[0])
 
             num_segment = action.shape[0]
@@ -118,8 +129,12 @@ class TALDataset(Dataset):
             label_padding = np.zeros(self.max_segment_num, dtype=int)
             label_padding[:num_segment] = label
 
-            return feat_spa, feat_tem, action_padding, label_padding, num_segment
+            is_checking_padding = np.zeros(self.max_segment_num, dtype=int)
+            is_checking_padding[:num_segment] = is_checking
+
+            return feat_spa, feat_tem, action_padding, label_padding, num_segment, is_checking_padding
         else:
+            #print(begin_frame)
             return feat_spa, feat_tem, begin_frame, video_name
 
     def _make_dataset(self):

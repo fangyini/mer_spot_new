@@ -41,10 +41,10 @@ def temporal_nms(df, cfg):
                 tmp_df = df[df.cate_idx == i]
                 out_df = pd.concat([out_df, tmp_df])
             tmp_df = out_df
-            label = np.array(tmp_df.cate_idx.values[:])
 
         tmp_df = tmp_df.sort_values(by='xmax', ascending=False)
         tmp_df = tmp_df.sort_values(by='xmin', ascending=False)
+        label = np.array(tmp_df.cate_idx.values[:])
 
         start_time = np.array(tmp_df.xmin.values[:])
         end_time = np.array(tmp_df.xmax.values[:])

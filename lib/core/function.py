@@ -15,13 +15,14 @@ dtype = torch.cuda.FloatTensor() if torch.cuda.is_available() else torch.FloatTe
 dtypel = torch.cuda.LongTensor() if torch.cuda.is_available() else torch.LongTensor()
 
 
-def ab_prediction_train(cfg, out_ab, label, boxes, action_num):
+def ab_prediction_train(cfg, out_ab, label, boxes, action_num, checking):
     '''
     Loss for anchor-based module includes: category classification loss, overlap loss and regression loss
     '''
     match_xs_ls = list()
     match_ws_ls = list()
     match_labels_ls = list()
+    match_checks_ls = list()
     match_scores_ls = list()
     anchors_class_ls = list()
     anchors_x_ls = list()
@@ -32,13 +33,14 @@ def ab_prediction_train(cfg, out_ab, label, boxes, action_num):
     for layer in range(cfg.MODEL.NUM_LAYERS):
         # anchors_class: bs, ti*n_box, nclass. others: bs, ti*n_box
         match_xs, match_ws, match_scores, match_labels, \
-        anchors_x, anchors_w, anchors_rx, anchors_rw, anchors_class = \
-            anchor_bboxes_encode(cfg, out_ab[layer], label, boxes, action_num, layer)
+        anchors_x, anchors_w, anchors_rx, anchors_rw, anchors_class, match_checking = \
+            anchor_bboxes_encode(cfg, out_ab[layer], label, boxes, action_num, layer, checking)
 
         match_xs_ls.append(match_xs)
         match_ws_ls.append(match_ws)
         match_scores_ls.append(match_scores)
         match_labels_ls.append(match_labels)
+        match_checks_ls.append(match_checking)
 
         anchors_x_ls.append(anchors_x)
         anchors_w_ls.append(anchors_w)
@@ -50,6 +52,7 @@ def ab_prediction_train(cfg, out_ab, label, boxes, action_num):
     match_xs_ls = torch.cat(match_xs_ls, dim=1)
     match_ws_ls = torch.cat(match_ws_ls, dim=1)
     match_labels_ls = torch.cat(match_labels_ls, dim=1)
+    match_checks_ls = torch.cat(match_checks_ls, dim=1)
     match_scores_ls = torch.cat(match_scores_ls, dim=1)
     anchors_class_ls = torch.cat(anchors_class_ls, dim=1)
     anchors_x_ls = torch.cat(anchors_x_ls, dim=1)
@@ -58,7 +61,7 @@ def ab_prediction_train(cfg, out_ab, label, boxes, action_num):
     anchors_rw_ls = torch.cat(anchors_rw_ls, dim=1)
 
     return anchors_x_ls, anchors_w_ls, anchors_rx_ls, anchors_rw_ls, anchors_class_ls, \
-           match_xs_ls, match_ws_ls, match_scores_ls, match_labels_ls
+           match_xs_ls, match_ws_ls, match_scores_ls, match_labels_ls, match_checks_ls
 
 
 def ab_predict_eval(cfg, out_ab):
@@ -101,13 +104,14 @@ def train(cfg, train_loader, model, optimizer):
         ab_weight = [27, 73, 35, 57, 304, 288, 53, 181] # [0.001, 1, 1]
         ab_weight = np.sum(ab_weight) / ab_weight / 20
 
-    for feat_spa, feat_tem, boxes, label, action_num in train_loader:
+    for feat_spa, feat_tem, boxes, label, action_num, is_checking_padding in train_loader:
         optimizer.zero_grad()
 
         feature = torch.cat((feat_spa, feat_tem), dim=1)
         feature = feature.type_as(dtype)
         boxes = boxes.float().type_as(dtype)
         label = label.type_as(dtypel)
+        is_checking_padding = is_checking_padding.type_as(dtypel)
 
         # calculate
         '''b = label.size()[0]
@@ -121,9 +125,10 @@ def train(cfg, train_loader, model, optimizer):
 
         # af label
         # we do not calculate binary classification loss for anchor-free branch
-        cate_label, reg_label = get_targets_af(cfg, boxes, label, action_num)
+        cate_label, reg_label, checking_label = get_targets_af(cfg, boxes, label, action_num, is_checking_padding)
         reg_label = reg_label.type_as(dtype)  # bs, sum(t_i), 2
         cate_label = cate_label.type_as(dtype)
+        checking_label=checking_label.type_as(dtype)
 
         out_af, out_ab = model(feature)
         # new version: af_cls: cls_af + cls_af_type, ab_pred: cls_ab + cls_ab_type + reg_ab
@@ -132,17 +137,18 @@ def train(cfg, train_loader, model, optimizer):
         preds_cls, preds_reg = out_af
         preds_loc = reg2loc(cfg, preds_reg)
         target_loc = reg2loc(cfg, reg_label)
-        cls_loss_af, reg_loss_af, f1_af = loss_function_af(cate_label, preds_cls, target_loc, preds_loc, cfg, af_weight)
+        cls_loss_af, reg_loss_af, f1_af = loss_function_af(cate_label, preds_cls, target_loc, preds_loc, cfg, af_weight,
+                                                           checking_label)
 
         # Loss for anchor-based module, including clasification loss, overlap loss and regression loss
         # anchors_class_ls: bs, sum_i(ti*n_box), n_class
         # others: bs, sum_i(ti*n_box)
         anchors_x_ls, anchors_w_ls, anchors_rx_ls, anchors_rw_ls, anchors_class_ls, \
-        match_xs_ls, match_ws_ls, match_scores_ls, match_labels_ls = ab_prediction_train(cfg, out_ab, label, boxes,
-                                                                                         action_num)
+        match_xs_ls, match_ws_ls, match_scores_ls, match_labels_ls, match_check_ls = ab_prediction_train(cfg, out_ab, label, boxes,
+                                                                                         action_num, is_checking_padding)
         cls_loss_ab, reg_loss_ab, f1_ab = loss_function_ab(anchors_x_ls, anchors_w_ls, anchors_rx_ls, anchors_rw_ls,
                                                     anchors_class_ls, match_xs_ls, match_ws_ls,
-                                                    match_scores_ls, match_labels_ls, cfg, ab_weight)
+                                                    match_scores_ls, match_labels_ls, cfg, ab_weight, match_check_ls)
         loss = cls_loss_af + reg_loss_af + cls_loss_ab + reg_loss_ab
         loss.backward()
         optimizer.step()

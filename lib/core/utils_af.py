@@ -31,7 +31,7 @@ def get_points(cfg):
     return points
 
 
-def get_targets_af(cfg, gt_bboxes, gt_labels, action_nums):
+def get_targets_af(cfg, gt_bboxes, gt_labels, action_nums, gt_checking):
     """
 
     Args:
@@ -56,10 +56,11 @@ def get_targets_af(cfg, gt_bboxes, gt_labels, action_nums):
 
     num_points = [p.size(0) for p in points]
 
-    labels_list, bbox_targets_list = multi_apply(
+    labels_list, bbox_targets_list, checking_list = multi_apply(
         get_target_single,
         gt_bboxes,
         gt_labels,
+        gt_checking,
         action_nums,
         points=concat_points,
         regress_ranges=concat_regress_ranges,
@@ -67,6 +68,7 @@ def get_targets_af(cfg, gt_bboxes, gt_labels, action_nums):
         cfg=cfg)
     
     labels = torch.stack(labels_list)
+    checking = torch.stack(checking_list)
     bbox_targets = torch.stack(bbox_targets_list)  # bs, sum_i(t_i), 2
     if cfg.MODEL.NORM_ON_BBOX:
         strides = [
@@ -77,10 +79,10 @@ def get_targets_af(cfg, gt_bboxes, gt_labels, action_nums):
         assert strides.size(0) == bbox_targets.size(1)
         bbox_targets = bbox_targets / strides[None, :, None].expand_as(bbox_targets)
 
-    return labels, bbox_targets
+    return labels, bbox_targets, checking
 
 
-def get_target_single(gt_bboxes, gt_labels, action_nums, points, regress_ranges,
+def get_target_single(gt_bboxes, gt_labels, gt_checking, action_nums, points, regress_ranges,
                       num_points_per_lvl, cfg):
     """
 
@@ -98,11 +100,12 @@ def get_target_single(gt_bboxes, gt_labels, action_nums, points, regress_ranges,
     num_points = points.size(0)
     gt_bboxes = gt_bboxes[:action_nums, :]
     gt_labels = gt_labels[:action_nums]
+    gt_checking = gt_checking[:action_nums]
 
     # gt_bboxes = gt_bboxes / 8  # match the max coordinate of point, which is 64, i.e. window_size / 8
 
     if action_nums == 0:
-        return gt_labels.new_full((num_points,), 0), gt_bboxes.new_zeros((num_points, 2))
+        return gt_labels.new_full((num_points,), 0), gt_bboxes.new_zeros((num_points, 2)), gt_checking.new_full((num_points,), 0)
 
     gt_length = gt_bboxes[:, 1] - gt_bboxes[:, 0]
     gt_length = gt_length[None].repeat(num_points, 1)  # Could not use expand!!!!
@@ -150,6 +153,8 @@ def get_target_single(gt_bboxes, gt_labels, action_nums, points, regress_ranges,
     
     labels = gt_labels[min_length_inds]
     labels[min_length == INF] = 0  # BG
+    gt_checking = gt_checking[min_length_inds]
+    gt_checking[min_length == INF] = 0
     bbox_targets = bbox_targets[range(num_points), min_length_inds]
     bbox_targets[min_length == INF, :] = 0
-    return labels, bbox_targets
+    return labels, bbox_targets, gt_checking
