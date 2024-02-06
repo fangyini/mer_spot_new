@@ -55,7 +55,7 @@ class Focal_loss(nn.Module):
 
 
 def loss_function_ab(anchors_x, anchors_w, anchors_rx_ls, anchors_rw_ls, anchors_class,
-                     match_x, match_w, match_scores, match_labels, cfg, weight, check):
+                     match_x, match_w, match_scores, match_labels, cfg, weight):
     '''
     calculate classification loss, localization loss and overlap_loss
     pmask, hmask and nmask are used to select training samples
@@ -78,7 +78,6 @@ def loss_function_ab(anchors_x, anchors_w, anchors_rx_ls, anchors_rw_ls, anchors
         anchors_class = anchors_class.view(-1, cfg.DATASET.NUM_CLASSES+int(cfg.DATASET.NUM_CLASSES/cfg.DATASET.NUM_OF_TYPE))[keep]
 
     match_labels = match_labels.view(-1)[keep]
-    check = check.view(-1)[keep]
 
     if cfg.MODEL.CLS_BRANCH == False:
         cate_loss_f = Focal_loss(num_classes=cfg.DATASET.NUM_CLASSES, class_weight=weight)
@@ -98,14 +97,6 @@ def loss_function_ab(anchors_x, anchors_w, anchors_rx_ls, anchors_rw_ls, anchors
 
         # only use positive sample,
         pred_cls_minor = anchors_class[:, major_type:]
-
-        # print check
-        '''checking_index = torch.where(check > 0)
-        pred_checking = pred_cls_minor[checking_index][:, 3:]
-        pred_checking = torch.argmax(pred_checking, dim=1)  # should be all 0
-        if pred_checking.size()[0] != 0:
-            acc = len(torch.where(pred_checking == 0)[0]) / pred_checking.size()[0]
-            print('AB pred acc:', acc)'''
 
         pos_sample = torch.where(match_labels>0)
         if pos_sample[0].size()[0] == 0:
@@ -195,7 +186,7 @@ def iou_loss(pred, target):
     return loss
 
 
-def loss_function_af(cate_label, preds_cls, target_loc, pred_loc, cfg, weight, checking_label):
+def loss_function_af(cate_label, preds_cls, target_loc, pred_loc, cfg, weight):
     '''
     preds_cls: bs, t1+t2+..., n_class
     pred_regs_batch: bs, t1+t2+..., 2
@@ -203,8 +194,6 @@ def loss_function_af(cate_label, preds_cls, target_loc, pred_loc, cfg, weight, c
     batch_size = preds_cls.size(0)
     cate_label_view = cate_label.view(-1)
     cate_label_view = cate_label_view.type_as(dtypel)
-    checking_view = checking_label.view(-1)
-    checking_view = checking_view.type_as(dtypel)
     if cfg.MODEL.CLS_BRANCH == False:
         preds_cls_view = preds_cls.view(-1, cfg.DATASET.NUM_CLASSES)
     else:
@@ -222,7 +211,7 @@ def loss_function_af(cate_label, preds_cls, target_loc, pred_loc, cfg, weight, c
     # cls loss
     if cfg.MODEL.CLS_BRANCH == False:
         cate_loss_f = Focal_loss(num_classes=cfg.DATASET.NUM_CLASSES, class_weight=weight)
-        cls_loss = cate_loss_f(preds_cls_view, cate_label_view)
+        cate_loss = cate_loss_f(preds_cls_view, cate_label_view)
         f1 = 0
     else:
         major_type = int(cfg.DATASET.NUM_CLASSES/cfg.DATASET.NUM_OF_TYPE)
@@ -238,16 +227,6 @@ def loss_function_af(cate_label, preds_cls, target_loc, pred_loc, cfg, weight, c
 
         # only use positive sample
         pred_cls_minor = preds_cls_view[:, major_type:]
-
-        # checking
-        '''checking_index = torch.where(checking_view>0)
-        #gt_checking = cate_label_view[checking_index]
-        #assert gt_checking.any() == 4
-        pred_checking = pred_cls_minor[checking_index][:, 3:]
-        pred_checking = torch.argmax(pred_checking, dim=1) # should be all 0
-        if pred_checking.size()[0] != 0:
-            acc = len(torch.where(pred_checking == 0)[0]) / pred_checking.size()[0]
-            print('AF pred acc:', acc)'''
 
         pos_sample = torch.where(cate_label_view>0)
         if pos_sample[0].size()[0] == 0:

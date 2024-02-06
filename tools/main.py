@@ -118,7 +118,7 @@ def main(subject, config):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='MER SPOT')
-    parser.add_argument('--cfg', type=str, help='experiment config file', default='experiments/CAS_2label.yaml')
+    parser.add_argument('--cfg', type=str, help='experiment config file', default='experiments/CAS_freeze.yaml')
     parser.add_argument('--dataset', type=str, default='cas(me)^2')
     args = parser.parse_args()
 
@@ -129,7 +129,9 @@ if __name__ == '__main__':
         ca_subject = [24] #[15,16,19,20,21,22,23,24,25,26,27,29,30,31,32,33,34,35,36,37,38,40]
         ca_subject = ['s'+ str(i)  for i in ca_subject]
         for i in ca_subject:
-            subject = 'subject_' + i 
+            subject = 'subject_' + i
+            print('*' * 10)
+            print(subject)
             main(subject, new_cfg)
     else:
         sa_subject = [6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,25,26,30,32,33,34,35,36,37,99]
