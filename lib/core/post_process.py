@@ -80,11 +80,11 @@ def final_result_process(out_df, epoch,subject, cfg, flag):
         df_vid = df_nms.sort_values(by='score', ascending=False)
 
         for i in range(len(tmpdf)):
-            start_time = tmpdf.start.values[i]
-            end_time = tmpdf.end.values[i]
-            label = tmpdf.label.values[i]
+            start_time = tmpdf.xmin.values[i]
+            end_time = tmpdf.xmax.values[i]
+            label = tmpdf.cate_idx.values[i]
             strout = '%s\t%.3f\t%.3f\t%d\t%.4f\n' % (
-            video_name, float(start_time), float(end_time), label, tmpdf.score.values[i])
+            video_name, float(start_time), float(end_time), label, tmpdf.conf.values[i])
             f_unnms.write(strout)
 
         for i in range(min(len(df_vid), cfg.TEST.TOP_K_RPOPOSAL)):
