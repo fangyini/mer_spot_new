@@ -28,10 +28,12 @@ def final_result_process(out_df, epoch,subject, cfg, flag):
         os.makedirs(path_tmp)
 
     res_txt_file = os.path.join(path_tmp, 'test_' + str(epoch).zfill(2)+'.txt')
+    res_txt_file_unnms = os.path.join(path_tmp, 'test_' + str(epoch).zfill(2) + '_unnms.txt')
     if os.path.exists(res_txt_file):
         os.remove(res_txt_file)
     
     f = open(res_txt_file, 'a')
+    f_unnms = open(res_txt_file_unnms, 'a')
 
     if flag == 0:
         df_ab, df_af = out_df
@@ -72,10 +74,18 @@ def final_result_process(out_df, epoch,subject, cfg, flag):
         print(df3)
         print('*' * 10)'''
 
-        type_set = list(set(tmpdf.cate_idx.values[:]))
+        #type_set = list(set(tmpdf.cate_idx.values[:]))
         df_nms = temporal_nms(tmpdf, cfg)
         # ensure there are most 200 proposals
         df_vid = df_nms.sort_values(by='score', ascending=False)
+
+        for i in range(len(tmpdf)):
+            start_time = tmpdf.start.values[i]
+            end_time = tmpdf.end.values[i]
+            label = tmpdf.label.values[i]
+            strout = '%s\t%.3f\t%.3f\t%d\t%.4f\n' % (
+            video_name, float(start_time), float(end_time), label, tmpdf.score.values[i])
+            f_unnms.write(strout)
 
         for i in range(min(len(df_vid), cfg.TEST.TOP_K_RPOPOSAL)):
             start_time = df_vid.start.values[i]
@@ -84,3 +94,4 @@ def final_result_process(out_df, epoch,subject, cfg, flag):
             strout = '%s\t%.3f\t%.3f\t%d\t%.4f\n' % (video_name, float(start_time), float(end_time), label, df_vid.score.values[i])
             f.write(strout)
     f.close()
+    f_unnms.close()
