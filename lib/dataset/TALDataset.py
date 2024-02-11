@@ -58,7 +58,6 @@ class TALDataset(Dataset):
     def __getitem__(self, idx):
         file_name = self.datas[idx]
         data = np.load(os.path.join(self.base_dir, file_name))
-
         feat_tem = data['feat_tem']
         # feat_tem = cv2.resize(feat_tem, self.target_size, interpolation=cv2.INTER_LINEAR)
         feat_spa = data['feat_spa']

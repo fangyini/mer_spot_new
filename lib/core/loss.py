@@ -83,6 +83,7 @@ def loss_function_ab(anchors_x, anchors_w, anchors_rx_ls, anchors_rw_ls, anchors
         cate_loss_f = Focal_loss(num_classes=cfg.DATASET.NUM_CLASSES, class_weight=weight)
         cls_loss = cate_loss_f(anchors_class, match_labels)
         f1 = 0
+        cls_loss = cls_loss / torch.sum(pmask)
     else:
         major_type = int(cfg.DATASET.NUM_CLASSES/cfg.DATASET.NUM_OF_TYPE)
         minor_type = cfg.DATASET.NUM_OF_TYPE
@@ -213,6 +214,7 @@ def loss_function_af(cate_label, preds_cls, target_loc, pred_loc, cfg, weight):
         cate_loss_f = Focal_loss(num_classes=cfg.DATASET.NUM_CLASSES, class_weight=weight)
         cate_loss = cate_loss_f(preds_cls_view, cate_label_view)
         f1 = 0
+        cate_loss = cate_loss / (torch.sum(pmask) + batch_size)
     else:
         major_type = int(cfg.DATASET.NUM_CLASSES/cfg.DATASET.NUM_OF_TYPE)
         minor_type = cfg.DATASET.NUM_OF_TYPE

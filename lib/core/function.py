@@ -172,9 +172,15 @@ def evaluation(val_loader, model, epoch, cfg):
             cfg.MODEL.TEMPORAL_LENGTH[i]) for i in range(cfg.MODEL.NUM_LAYERS)  # n_point
     ]
     strides = torch.cat(strides).type_as(dtype)  # sum_i(t_i),
+    '''a = cfg.TEST.OUTDF_COLUMNS_AF
+    if cfg.MODEL.CLS_BRANCH == True:
+        a.append('minor_conf')
+    out_df_af = pd.DataFrame(columns=a)
+    a = cfg.TEST.OUTDF_COLUMNS_AB
+    if cfg.MODEL.CLS_BRANCH == True:
+        a.append('minor_conf')
+    out_df_ab = pd.DataFrame(columns=a)'''
 
-    out_df_ab = pd.DataFrame(columns=cfg.TEST.OUTDF_COLUMNS_AB)
-    out_df_af = pd.DataFrame(columns=cfg.TEST.OUTDF_COLUMNS_AF)
     for feat_spa, feat_tem, begin_frame, video_name in val_loader:
         begin_frame = begin_frame.detach().numpy()
 

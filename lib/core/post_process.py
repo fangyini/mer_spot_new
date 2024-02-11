@@ -28,12 +28,12 @@ def final_result_process(out_df, epoch,subject, cfg, flag):
         os.makedirs(path_tmp)
 
     res_txt_file = os.path.join(path_tmp, 'test_' + str(epoch).zfill(2)+'.txt')
-    res_txt_file_unnms = os.path.join(path_tmp, 'test_' + str(epoch).zfill(2) + '_unnms.txt')
+    #res_txt_file_unnms = os.path.join(path_tmp, 'test_' + str(epoch).zfill(2) + '_unnms.txt')
     if os.path.exists(res_txt_file):
         os.remove(res_txt_file)
     
     f = open(res_txt_file, 'a')
-    f_unnms = open(res_txt_file_unnms, 'a')
+    #f_unnms = open(res_txt_file_unnms, 'a')
 
     if flag == 0:
         df_ab, df_af = out_df
@@ -61,31 +61,18 @@ def final_result_process(out_df, epoch,subject, cfg, flag):
         else:
             tmpdf = df_af[df_af.video_name == video_name]
 
-        # todo: filter 842, 882, 832, 881,
-        # 1421, 1463, 1421, 1464
-        # 2001, 2046, 2005, 2044
-        '''df1 = tmpdf[tmpdf['xmin'].between(830, 845) & tmpdf['xmax'].between(880, 883)]
-        df2 = tmpdf[tmpdf['xmin'].between(1420, 1422) & tmpdf['xmax'].between(1462, 1465)]
-        df3 = tmpdf[tmpdf['xmin'].between(2000, 2006) & tmpdf['xmax'].between(2043, 2047)]
-        print(df1)
-        print('*'*10)
-        print(df2)
-        print('*' * 10)
-        print(df3)
-        print('*' * 10)'''
-
         #type_set = list(set(tmpdf.cate_idx.values[:]))
         df_nms = temporal_nms(tmpdf, cfg)
         # ensure there are most 200 proposals
         df_vid = df_nms.sort_values(by='score', ascending=False)
 
-        for i in range(len(tmpdf)):
+        '''for i in range(len(tmpdf)):
             start_time = tmpdf.xmin.values[i]
             end_time = tmpdf.xmax.values[i]
             label = tmpdf.cate_idx.values[i]
             strout = '%s\t%.3f\t%.3f\t%d\t%.4f\n' % (
             video_name, float(start_time), float(end_time), label, tmpdf.conf.values[i])
-            f_unnms.write(strout)
+            f_unnms.write(strout)'''
 
         for i in range(min(len(df_vid), cfg.TEST.TOP_K_RPOPOSAL)):
             start_time = df_vid.start.values[i]
@@ -94,4 +81,4 @@ def final_result_process(out_df, epoch,subject, cfg, flag):
             strout = '%s\t%.3f\t%.3f\t%d\t%.4f\n' % (video_name, float(start_time), float(end_time), label, df_vid.score.values[i])
             f.write(strout)
     f.close()
-    f_unnms.close()
+    #f_unnms.close()

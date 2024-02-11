@@ -4,6 +4,7 @@ import pandas as pd
 import numpy as np
 import torch.nn.init as init
 import numpy as np
+from scipy.special import softmax
 
 def sigmoid(z):
     return 1/(1 + np.exp(-z))
@@ -97,22 +98,19 @@ def result_process_ab(video_names, video_len, start_frames, anchors_class, ancho
 
         max_idxs_mae = np.where(max_idxs_macro_type == 0) # macro, 4/5/6, ind:
         max_idxs = np.zeros((max_idxs_macro_type.shape), dtype=int)
+        #max_confidence = np.zeros((max_idxs_macro_type.shape), dtype=float)
         mae_pred_label = np.argmax(micro_type[max_idxs_mae][:, num_of_type:], axis=1) + num_of_type
         max_idxs[max_idxs_mae] = mae_pred_label
+        #conf_mae = np.amax(softmax(micro_type[max_idxs_mae][:, num_of_type:], axis=1), axis=1)
+        #max_confidence[max_idxs_mae] = conf_mae
 
         max_idxs_me = np.where(max_idxs_macro_type == 1)  # micro, 1/2/3, :ind
         me_pred_label = np.argmax(micro_type[max_idxs_me][:, :num_of_type], axis=1)
         max_idxs[max_idxs_me] = me_pred_label
+        #max_confidence[max_idxs_me] = np.amax(softmax(micro_type[max_idxs_me][:, :num_of_type], axis=1), axis=1)
+        #final_confidence_minor = np.reshape(max_confidence, num_element)
+        #out_df['minor_conf'] = final_confidence_minor
 
-    '''max_idxs = np.zeros((max_idxs_macro_type.shape), dtype=int)
-        for i in range(max_idxs.shape[0]):
-            for j in range(max_idxs.shape[1]):
-                macro_type_i = max_idxs_macro_type[i][j] # 0 macro first 4, +4 or 1 micro, last 4
-                if macro_type_i == 0:
-                    micro_type_i = np.argmax(micro_type[i][j][:num_of_type]) + num_of_type
-                elif macro_type_i == 1:
-                    micro_type_i = np.argmax(micro_type[i][j][num_of_type:])
-                max_idxs[i][j] = micro_type_i'''
     max_idxs = max_idxs + 1
     cate_idx_tmp = np.reshape(max_idxs, num_element)
     # Notice: convert index into category type
@@ -120,7 +118,8 @@ def result_process_ab(video_names, video_len, start_frames, anchors_class, ancho
     cate_idx_tmp = np.array(class_real)[cate_idx_tmp]
     out_df['cate_idx'] = cate_idx_tmp
 
-    out_df = out_df[cfg.TEST.OUTDF_COLUMNS_AB]
+    a=cfg.TEST.OUTDF_COLUMNS_AB
+    out_df = out_df[a]
 
     return out_df
 
@@ -182,13 +181,18 @@ def result_process_af(video_names, start_frames, cls_scores, anchors_xmin, ancho
 
         max_idxs_mae = np.where(max_idxs_macro_type == 0)  # macro, 4/5/6, ind:
         max_idxs = np.zeros((max_idxs_macro_type.shape), dtype=int)
+        #max_confidence = np.zeros((max_idxs_macro_type.shape), dtype=float)
         mae_pred_label = np.argmax(micro_type[max_idxs_mae][:, num_of_type:], axis=1) + num_of_type
         max_idxs[max_idxs_mae] = mae_pred_label
+        #conf_mae = np.amax(softmax(micro_type[max_idxs_mae][:, num_of_type:], axis=1), axis=1)
+        #max_confidence[max_idxs_mae] = conf_mae
 
         max_idxs_me = np.where(max_idxs_macro_type == 1)  # micro, 1/2/3, :ind
         me_pred_label = np.argmax(micro_type[max_idxs_me][:, :num_of_type], axis=1)
         max_idxs[max_idxs_me] = me_pred_label
-
+        #max_confidence[max_idxs_me] = np.amax(softmax(micro_type[max_idxs_me][:, :num_of_type], axis=1), axis=1)
+        #final_confidence_minor = np.reshape(max_confidence, num_element)
+        #out_df['minor_conf'] = final_confidence_minor
 
     max_idxs = max_idxs + 1
     cate_idx_tmp = np.reshape(max_idxs, num_element)
@@ -198,5 +202,6 @@ def result_process_af(video_names, start_frames, cls_scores, anchors_xmin, ancho
         cate_idx_tmp[i] = class_real[int(cate_idx_tmp[i])]
     out_df['cate_idx'] = cate_idx_tmp
 
-    out_df = out_df[cfg.TEST.OUTDF_COLUMNS_AB]
+    a = cfg.TEST.OUTDF_COLUMNS_AF
+    out_df = out_df[a]
     return out_df

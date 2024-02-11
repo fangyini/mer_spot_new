@@ -90,7 +90,8 @@ def main(subject, config):
     # test inference
     '''out_df_ab, out_df_af = evaluation(val_loader, model, 0, cfg)
     out_df_list = [out_df_ab, out_df_af]
-    final_result_process(out_df_list, 0, subject, cfg, flag=0)'''
+    final_result_process(out_df_list, 0, subject, cfg, flag=0)
+    return'''
 
     print('TODO: cls loss only calculate minor type clas!!')
 
@@ -109,7 +110,7 @@ def main(subject, config):
         lr = scheduler.get_last_lr()
 
         if (epoch+1) % cfg.TEST.EVAL_INTERVAL == 0:
-            if cfg.BASIC.SAVE_MODEL == True and epoch > 15:
+            if cfg.BASIC.SAVE_MODEL == True and epoch > 30:
                 save_model(cfg, epoch=epoch, model=model, optimizer=optimizer, subject=subject)
             out_df_ab, out_df_af = evaluation(val_loader, model, epoch, cfg)
             out_df_list = [out_df_ab, out_df_af]
