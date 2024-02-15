@@ -374,7 +374,7 @@ def main_threshold(path, dataset, annotation, version, label_frequency, start_th
             # M1： Number of macro-expressions
             # M2： Number of micro-expressions
             if dataset == 'cas(me)^2' or dataset == 'cas(me)^2_merge':
-                if annotation == 'casme2_annotation.csv':
+                if annotation == 'casme2_annotation_new.csv':
                     M1= 279 #282
                     M2 = 57 # 84
                 elif annotation == 'casme2_annotation_357.csv':
@@ -434,7 +434,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Test')
 
     parser.add_argument('--path', type=str, default='outputs/output_V28_2labels/cas(me)^2')
-    parser.add_argument('--ann', type=str, default='casme2_annotation.csv')
+    parser.add_argument('--ann', type=str, default='casme2_annotation_new.csv')
     parser.add_argument('--dataset', type=str, default='cas(me)^2')
     parser.add_argument('--version', type=int, default=28)
     parser.add_argument('--top_k', type=bool, default=False)
