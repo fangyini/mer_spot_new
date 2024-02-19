@@ -4,6 +4,7 @@ import numpy as np
 from os import listdir
 from os.path import isfile, join, isdir
 import math
+import matplotlib.pyplot as plt
 
 
 class NpEncoder(json.JSONEncoder):
@@ -17,7 +18,7 @@ class NpEncoder(json.JSONEncoder):
         return super(NpEncoder, self).default(obj)
 
 
-def get_casme_annotation(rawpic_path, file_path, save_file):
+def get_casme_annotation(rawpic_path, file_path, gt_save_file=None, error_refine_save_file=None):
     rawpic_dict = {}
     max_seq_len = 0
     feat_stride=6
@@ -36,6 +37,7 @@ def get_casme_annotation(rawpic_path, file_path, save_file):
                 max_seq_len = seq_len
     print('max seq len=', max_seq_len)
     database = {}
+    database_error = {}
     df = pd.read_excel(file_path, sheet_name=[0, 1, 2, 3, 4])
     df0 = df[0]
     df1 = df[1]
@@ -66,7 +68,9 @@ def get_casme_annotation(rawpic_path, file_path, save_file):
             type2_dict[row[0]] = row[1]
 
     type1_counter = {'negative': 0, 'positive': 0, 'others': 0, 'surprise': 0}
-
+    numofzero = 0
+    firsthalf = []
+    sechalf = []
 
     # iterate df0
     for ind in df0.index:
@@ -86,12 +90,23 @@ def get_casme_annotation(rawpic_path, file_path, save_file):
         full_name = rawpic_dict[video_name]['name']
         if full_name not in database:
             database[full_name] = {'micro': {'start': {}, 'end': {}}, 'macro': {'start': {}, 'end': {}}} # {'subset': subset, 'duration(frames)': rawpic_dict[video_name]['len'],  'annotations': []}
+            database_error[full_name] = {'micro': {'start': {}, 'end': {}}, 'macro': {'start': {}, 'end': {}}}
         if row['Expression'] == 'macro-expression':
             expression = 'macro'
         elif row['Expression'] == 'micro-expression':
             expression = 'micro'
         start = int(row['Onset'])
         end = int(row['Offset'])
+        apex = int(row['Apex'])
+        #if end == 0 or apex == 0 or apex>end or start>apex:
+        if end<start:
+            #assert end==0
+            numofzero += 1 #end 44, apex 1, 47, 1
+            database_error[full_name][expression]['start'][start] = 1 #{'Type1': type1, 'Type2': type2}
+            database_error[full_name][expression]['end'][apex] = 1 #{'Type1': type1, 'Type2': type2}
+        elif expression == 'macro':
+            firsthalf.append(int(apex) - int(start))
+            sechalf.append(int(end) - int(apex))
 
         type1_counter[row['Type1']] += 1
 
@@ -105,14 +120,28 @@ def get_casme_annotation(rawpic_path, file_path, save_file):
         type2 = type2_dict[row['Type2']]
         database[full_name]['annotations'].append({'segment(frames)': segment, 'expression': expression, 'type1': type1, 'type2': type2})'''
     #final_file = {"version": "casme2", "database": database}
-    with open(save_file, "w") as outfile:
-        json.dump(database, outfile, cls=NpEncoder)
-
+    if gt_save_file is not None:
+        with open(gt_save_file, "w") as outfile:
+            json.dump(database, outfile, cls=NpEncoder)
+    if error_refine_save_file is not None:
+        with open(error_refine_save_file, "w") as outfile:
+            json.dump(database_error, outfile, cls=NpEncoder)
+    print(type1_counter)
+    print(firsthalf)
+    print(sechalf)
+    print('zero offset: ', numofzero)
+    print('first half mean: ', np.mean(firsthalf), ', std: ', np.std(firsthalf))
+    print('sec half mean: ', np.mean(sechalf), ', std: ', np.std(sechalf), ', median: ', np.median(sechalf))
+    #plt.hist(sechalf, bins=50)
+    #plt.show()
 
 if __name__ == '__main__':
+    # temporary solution:
+    # note: check casme2_gt.json first, then error_refine.json
     get_casme_annotation('/Users/adia/Documents/HKUST/micro_datasets/CAS(ME)2/rawpic/',
                          '/Users/adia/Documents/HKUST/projects/phase2/actionformer_release-main/data/casme/CAS(ME)2info.xlsx',
-                         '../casme2_gt.json')
+                         '../casme2_gt.json',
+                         '../casme2_error_refine.json')
 
 
 

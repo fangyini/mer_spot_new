@@ -4,8 +4,8 @@ import json
 macro_types_summary = {0:0, 1:0, 2:0, 3:0}
 micro_types_summary = {0:0, 1:0, 2:0, 3:0}
 
-annotation_file = '../casme2_annotation.csv'
-new_file = '../casme2_annotation_minor_type.csv'
+annotation_file = '/Users/adia/Documents/HKUST/projects/phase2/LGSNet-main_new/casme2_annotation_357.csv' #'../casme2_annotation.csv'
+new_file = '../casme2_annotation_minor_type_357.csv'
 total_micro = 0
 total_macro = 0
 
@@ -27,9 +27,11 @@ for x in gt_dict:
             macro_types_summary[t] += 1
     test_micro += m1
     test_macro += m2
+
 print(test_macro, test_micro)
 print(macro_types_summary)
 print(micro_types_summary)
+
 with open(new_file, 'w', newline='') as csvfile:
     #writer = csv.writer(csvfile, delimiter=' ',
     #                        quotechar='|', quoting=csv.QUOTE_MINIMAL)
@@ -62,6 +64,5 @@ with open(new_file, 'w', newline='') as csvfile:
 
 print('total macro', total_macro, ', total micro', total_micro)
 print(row_num)
-print('not consistent??')
 
 
